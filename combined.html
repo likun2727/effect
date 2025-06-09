@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>粒子效果与人体识别整合页面</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+        
+        .main-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            background-color: #000;
+        }
+        
+        /* 粒子效果区域 */
+        .particle-section {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        .particle-title {
+            display: none;
+        }
+        
+        #canvas2D {
+            width: 65%;
+            height: 70%;
+            display: block;
+            margin: auto;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        #canvasWebGL2 {
+            display: none;
+            width: 65%;
+            height: 70%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        /* 人体识别区域 */
+        .pose-section {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            height: 240px;
+            z-index: 100;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background-color: #000;
+        }
+        
+        .pose-title {
+            display: none;
+        }
+        
+        .pose-mini-title {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: rgba(255, 255, 255, 0.9);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 10;
+        }
+        
+        .pose-canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-color: #000;
+            border-radius: 12px;
+        }
+        
+        #output_canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 12px;
+        }
+        
+        /* 控制面板 */
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .controls h3 {
+            margin: 0;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .camera-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .camera-selector label {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            white-space: nowrap;
+        }
+        
+        .camera-selector select {
+            padding: 8px 12px;
+            font-size: 14px;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.9);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            min-width: 200px;
+            cursor: pointer;
+        }
+        
+        .camera-selector select:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .camera-selector select:focus {
+            outline: none;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.6);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+        
+        .camera-selector select option {
+            background-color: #333;
+            color: #fff;
+            padding: 8px;
+        }
+        
+        .camera-selector select:disabled {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.4);
+            border-color: rgba(255, 255, 255, 0.1);
+            cursor: not-allowed;
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.9);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-1px);
+        }
+        
+        button:disabled {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.4);
+            border-color: rgba(255, 255, 255, 0.1);
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* 开启状态的按钮样式 */
+        button.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 1);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+        }
+        
+        /* 截屏按钮特殊样式 */
+        #screenshotBtn.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 1);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+        }
+        
+        /* 动作识别控制面板 */
+        .action-controls {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            min-width: 200px;
+            max-height: calc(100vh - 300px);
+            overflow-y: auto;
+        }
+        
+        .action-controls h3 {
+            margin: 0 0 15px 0;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .action-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .action-item h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .action-toggle {
+            width: 100%;
+            padding: 8px 16px;
+            font-size: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 5px;
+            backdrop-filter: blur(10px);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .action-toggle.enabled {
+            background-color: rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 1);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+        
+        .action-toggle.disabled {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .action-counter {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        /* 状态显示 */
+        #status {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            padding: 10px 20px;
+            border-radius: 4px;
+            display: none;
+            max-width: 80%;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        #status.error {
+            display: block;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 100, 100, 0.8);
+            color: rgba(255, 200, 200, 0.9);
+        }
+        
+        #status.success {
+            display: block;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(100, 255, 100, 0.8);
+            color: rgba(200, 255, 200, 0.9);
+        }
+        
+
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- 粒子效果区域 -->
+        <div class="particle-section">
+            <div class="particle-title">粒子效果展示</div>
+            <canvas id="canvas2D"></canvas>
+            <canvas id="canvasWebGL2"></canvas>
+        </div>
+        
+        <!-- 人体识别区域 -->
+        <div class="pose-section">
+            <div class="pose-canvas-container">
+                <canvas id="output_canvas"></canvas>
+                <div class="pose-mini-title">人体识别</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 主控制面板 -->
+    <div class="controls">
+        <h3>控制面板</h3>
+        <div class="camera-selector">
+            <label for="cameraSelect">摄像头:</label>
+            <select id="cameraSelect">
+                <option value="">正在检测摄像头...</option>
+            </select>
+        </div>
+        <button id="startBtn">开始识别</button>
+        <button id="stopBtn" disabled>停止识别</button>
+        <button id="screenshotBtn" disabled>手动截屏</button>
+        <button id="galleryBtn">查看截图</button>
+    </div>
+    
+    <!-- 动作识别控制面板 -->
+    <div class="action-controls">
+        <h3>动作识别设置</h3>
+        
+        <div class="action-item">
+            <h4>下蹲识别</h4>
+            <button id="squatToggleBtn" class="action-toggle disabled">启动下蹲识别</button>
+            <div class="action-counter">次数: <span id="squatCount">0</span></div>
+            <div id="squatCooldown" class="action-counter" style="color: #ff6b35; font-weight: bold; display: none;">
+                冷却中: <span id="cooldownTime">5</span>秒
+            </div>
+        </div>
+        
+        <div class="action-item">
+            <h4>屈肘抬臂识别</h4>
+            <button id="armToggleBtn" class="action-toggle disabled">启动屈肘抬臂识别</button>
+            <div class="action-counter">次数: <span id="armCount">0</span></div>
+            <div class="action-counter" style="font-size: 11px; color: #ff6b35; margin-top: 5px;">
+                <strong>新效果：</strong>触发粒子左右分裂！
+            </div>
+        </div>
+        
+        <div class="action-item">
+            <h4>伸展运动识别</h4>
+            <button id="stretchToggleBtn" class="action-toggle disabled">启动伸展运动识别</button>
+            <div class="action-counter">次数: <span id="stretchCount">0</span></div>
+            <div class="action-counter" style="font-size: 11px; color: #9c27b0; margin-top: 5px;">
+                <strong>新效果：</strong>触发粒子横向流动！
+            </div>
+        </div>
+        
+        <div class="action-item" style="border-color: #2196F3;">
+            <h4>智能截屏功能</h4>
+            <div class="action-counter" style="color: #2196F3;">
+                已截屏: <span id="screenshotCountDisplay">0</span> 张
+            </div>
+            <div class="action-counter" style="font-size: 11px; color: rgba(255, 255, 255, 0.6); margin-top: 5px;">
+                • 开始识别时自动截屏<br/>
+                • 检测到动作时自动截屏<br/>
+                • 可手动点击截屏按钮
+            </div>
+        </div>
+        
+        <div class="action-item" style="border-color: #4caf50;">
+            <h4>实时姿态响应</h4>
+            <div class="action-counter" style="color: #4caf50; font-size: 12px;">
+                <strong>智能跟踪：</strong>粒子实时响应手部运动
+            </div>
+            <div class="action-counter" style="font-size: 11px; color: #666; margin-top: 5px;">
+                • 手部位置影响粒子流向<br/>
+                • 运动强度影响粒子活跃度<br/>
+                • 保留4D噪声美感<br/>
+                • <span style="color: #4caf50;">已优化平滑度</span>
+            </div>
+            <div class="action-counter" style="font-size: 10px; color: #999; margin-top: 5px;">
+                能量: <span id="energyDisplay">0.0</span> | 
+                影响: <span id="influenceDisplay">0.0</span>
+            </div>
+        </div>
+    </div>
+    
+
+    
+    <!-- 粒子爆炸倒计时提示 -->
+    <div id="explosionCountdown" style="
+        position: fixed;
+        top: 50%;
+        left: 25%;
+        transform: translate(-50%, -50%);
+        z-index: 1001;
+        background-color: rgba(255, 165, 0, 0.9);
+        color: white;
+        padding: 20px 30px;
+        border-radius: 10px;
+        font-size: 24px;
+        font-weight: bold;
+        text-align: center;
+        display: none;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        border: 3px solid #ff6b35;
+    ">
+        <div>粒子爆炸倒计时</div>
+        <div id="countdownNumber" style="font-size: 36px; margin-top: 10px;">3</div>
+    </div>
+    
+    <!-- 状态显示 -->
+    <div id="status"></div>
+
+    <!-- 粒子效果相关脚本 -->
+    <script src="https://openprocessing.org/openprocessing_sketch.js"></script>
+    <script src="tools.js"></script>
+    <script src="snoise4D.js"></script>
+    <script src="snoise4DImage.js"></script>
+    <script src="displace.js"></script>
+    <script src="shaderSource.js"></script>
+    
+    <!-- 人体识别相关脚本 -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    
+    <!-- 错误处理 -->
+    <script>
+        window.addEventListener('error', function(e) {
+            if (e.target.tagName === 'SCRIPT') {
+                const status = document.getElementById('status');
+                status.textContent = '加载必要组件失败，请检查网络连接并刷新页面重试。';
+                status.className = 'error';
+            }
+        }, true);
+    </script>
+    
+    <!-- 整合脚本 -->
+    <script>
+        // 粒子效果控制系统
+        let particleSystem = {
+            gl: null,
+            program: null,
+            timeLoc: null,
+            explosionScaleLoc: null,
+            armSplitLoc: null,
+            armSplitStrengthLoc: null,
+            stretchModeLoc: null,
+            stretchStrengthLoc: null,
+            // 实时姿态响应
+            leftHandPosLoc: null,
+            rightHandPosLoc: null,
+            bodyEnergyLoc: null,
+            handInfluenceLoc: null,
+            time: 0,
+            explosionScale: 1.0,
+            isExploding: false,
+            explosionStartTime: 0,
+            armSplitStrength: 0.0,
+            isArmSplitting: false,
+            armSplitStartTime: 0,
+            stretchStrength: 0.0,
+            isStretching: false,
+            stretchStartTime: 0,
+            // 实时姿态数据
+            leftHandPos: [0.0, 0.0],
+            rightHandPos: [0.0, 0.0],
+            bodyEnergy: 0.0,
+            handInfluence: 0.5,
+            cols: 0,
+            rows: 0,
+            canvasWebGL2: null,
+            canvas2D: null
+        };
+
+        // 触发粒子爆炸效果
+        window.triggerParticleExplosion = () => {
+            if (!particleSystem.isExploding) {
+                console.log('触发粒子爆炸效果');
+                particleSystem.isExploding = true;
+                particleSystem.explosionStartTime = particleSystem.time;
+            }
+        };
+
+        // 触发粒子屈臂分裂效果
+        window.triggerArmSplit = () => {
+            if (!particleSystem.isArmSplitting) {
+                console.log('触发粒子屈臂分裂效果');
+                particleSystem.isArmSplitting = true;
+                particleSystem.armSplitStartTime = particleSystem.time;
+            }
+        };
+
+        // 触发粒子伸展横向运动效果
+        window.triggerStretchMode = () => {
+            if (!particleSystem.isStretching) {
+                console.log('触发粒子伸展横向运动效果');
+                particleSystem.isStretching = true;
+                particleSystem.stretchStartTime = particleSystem.time;
+            }
+        };
+
+        // 更新实时姿态数据
+        window.updatePoseData = (poseData) => {
+            if (poseData && poseData.leftHand && poseData.rightHand) {
+                // 平滑更新手部位置（转换为着色器坐标系）
+                const targetLeftPos = [
+                    (poseData.leftHand.x - 0.5) * 2.0,  // 转换为-1到1的范围
+                    (0.5 - poseData.leftHand.y) * 2.0   // Y轴翻转
+                ];
+                const targetRightPos = [
+                    (poseData.rightHand.x - 0.5) * 2.0,
+                    (0.5 - poseData.rightHand.y) * 2.0
+                ];
+                
+                // 应用额外的平滑处理
+                const positionSmoothFactor = 0.1;
+                particleSystem.leftHandPos[0] = particleSystem.leftHandPos[0] * (1 - positionSmoothFactor) + targetLeftPos[0] * positionSmoothFactor;
+                particleSystem.leftHandPos[1] = particleSystem.leftHandPos[1] * (1 - positionSmoothFactor) + targetLeftPos[1] * positionSmoothFactor;
+                particleSystem.rightHandPos[0] = particleSystem.rightHandPos[0] * (1 - positionSmoothFactor) + targetRightPos[0] * positionSmoothFactor;
+                particleSystem.rightHandPos[1] = particleSystem.rightHandPos[1] * (1 - positionSmoothFactor) + targetRightPos[1] * positionSmoothFactor;
+                
+                // 平滑更新身体活动能量
+                const targetEnergy = (poseData.energy || 0.0) * 0.3; // 降低能量影响
+                particleSystem.bodyEnergy = particleSystem.bodyEnergy * 0.9 + targetEnergy * 0.1;
+                
+                // 计算手部影响强度，降低敏感度
+                const handDistance = Math.sqrt(
+                    Math.pow(poseData.leftHand.x - poseData.rightHand.x, 2) + 
+                    Math.pow(poseData.leftHand.y - poseData.rightHand.y, 2)
+                );
+                const targetInfluence = Math.min(0.5, handDistance * 1.0); // 降低最大影响和敏感度
+                particleSystem.handInfluence = particleSystem.handInfluence * 0.95 + targetInfluence * 0.05;
+            }
+        };
+
+        // 粒子效果初始化
+        const initParticleEffect = async () => {
+            // 保持粒子效果的原始分辨率以确保性能
+            const [width, height] = [640, 720]; // 恢复原始分辨率
+            
+            particleSystem.canvasWebGL2 = document.getElementById("canvasWebGL2");
+            particleSystem.canvas2D = document.getElementById("canvas2D");
+
+            // webgl2 setup
+            particleSystem.gl = particleSystem.canvasWebGL2.getContext("webgl2");
+            particleSystem.program = particleSystem.gl.createProgram();
+            
+            // 修改着色器以支持爆炸、屈臂分裂、伸展横向运动和实时姿态响应
+            const modifiedVert = `#version 300 es
+
+                in vec2 aPosition;
+                in vec2 aTexCoord;
+                
+                uniform vec2 uRandomVec2;
+                uniform float uTime;
+                uniform float uExplosionScale;
+                uniform float uArmSplit;
+                uniform float uArmSplitStrength;
+                uniform float uStretchMode;
+                uniform float uStretchStrength;
+                // 实时姿态响应
+                uniform vec2 uLeftHandPos;
+                uniform vec2 uRightHandPos;
+                uniform float uBodyEnergy;
+                uniform float uHandInfluence;
+                
+                ${snoise4D}
+                ${snoise4DImage}
+                ${displace}
+                
+              // 改进的噪声函数，使用不同的频率和偏移创造新的形状
+              vec4 noise(vec2 uv, float scal, float gain, float ofst, float expo, vec4 move) {
+                vec4 noise;
+                // 使用不同的偏移值和频率组合，创造更有机的形状
+                noise  =     1.*snoise4DImage((uv-vec2(234., 567))*0.8, scal, gain, ofst, move);
+                noise +=     .6*snoise4DImage((uv-vec2(789., 123))*1.5, scal, gain, ofst, move);
+                noise +=    .35*snoise4DImage((uv-vec2(456., 890))*3.2, scal, gain, ofst, move);
+                noise +=   .2*snoise4DImage((uv-vec2(678., 345))*6.4, scal, gain, ofst, move);
+                noise +=  .1*snoise4DImage((uv-vec2(901., 234))*12.8, scal, gain, ofst, move);
+                // 添加一个低频大尺度的噪声层
+                noise +=  1.2*snoise4DImage((uv-vec2(111., 222))*0.3, scal, gain, ofst, move);
+                noise /= 3.45; // 调整归一化因子
+                return noise;
+              }
+              
+              // 计算手部对粒子的影响
+              vec2 calculateHandInfluence(vec2 pos, vec2 handPos, float strength) {
+                  vec2 toHand = handPos - pos;
+                  float distance = length(toHand);
+                  float influence = exp(-distance * 4.0) * strength; // 增加衰减速度
+                  return normalize(toHand) * influence * 0.1; // 大幅降低影响强度
+              }
+
+                out vec2 vTexCoord;
+                out vec2 vCol;
+                void main() {
+                    vTexCoord = aTexCoord;
+                    vec2 pos = aPosition;
+                    float circle = smoothstep(1., .0, length(0.-aPosition));
+                    
+                    // 基础噪声计算，减少身体能量影响
+                    float energyScale = 1.0 + uBodyEnergy * 0.2; // 降低能量影响
+                    float timeScale = uTime * (0.8 + uBodyEnergy * 0.2); // 减少时间缩放变化
+                    vec2 baseNoise = noise(pos, 1.5, 3., .5, 1., vec4(vec2(0.), vec2(cos(timeScale*.3), sin(timeScale*.3))+uRandomVec2)).rg*circle;
+                    
+                    // 实时手部影响，进一步降低强度
+                    vec2 handInfluenceForce = vec2(0.0);
+                    if (uHandInfluence > 0.05) { // 提高阈值
+                        handInfluenceForce += calculateHandInfluence(pos, uLeftHandPos, uHandInfluence * 0.5); // 再次降低影响
+                        handInfluenceForce += calculateHandInfluence(pos, uRightHandPos, uHandInfluence * 0.5);
+                    }
+                    
+                    // 伸展模式：横向运动
+                    vec2 n = baseNoise;
+                    if (uStretchMode > 0.0) {
+                        // 创建横向流动效果
+                        float horizontalFlow = sin(pos.y * 2.0 + uTime * 3.0) * uStretchStrength;
+                        vec2 stretchNoise = vec2(horizontalFlow, baseNoise.y * (1.0 - uStretchStrength * 0.7));
+                        
+                        // 混合原始噪声和横向运动
+                        n = mix(baseNoise, stretchNoise, uStretchStrength);
+                        
+                        // 添加整体的横向漂移
+                        float globalHorizontalDrift = cos(uTime * 1.5) * uStretchStrength * 0.3;
+                        n.x += globalHorizontalDrift;
+                    }
+                    
+                    // 应用手部影响到噪声，进一步降低强度
+                    n += handInfluenceForce * energyScale * 0.3;
+                    
+                    // 应用爆炸缩放效果
+                    vec2 scaledPos = pos * uExplosionScale;
+                    vec2 scaledNoise = n * uExplosionScale;
+                    
+                    // 应用屈臂分裂效果
+                    if (uArmSplit > 0.0) {
+                        // 计算粒子相对于中心的位置
+                        float distanceFromCenter = length(pos);
+                        float splitDirection = sign(pos.x); // 左边为-1，右边为1
+                        
+                        // 创建向左右分裂的力
+                        vec2 splitForce = vec2(splitDirection * uArmSplitStrength * distanceFromCenter, 0.0);
+                        
+                        // 添加一些垂直的波动效果，模拟手臂的弯曲
+                        float verticalWave = sin(pos.x * 3.14159 + uTime * 2.0) * uArmSplitStrength * 0.3;
+                        splitForce.y += verticalWave;
+                        
+                        scaledPos += splitForce;
+                        scaledNoise += splitForce * 0.5;
+                    }
+                    
+                    vec2 dpos = displace(scaledPos, scaledNoise, .5, .2*circle);
+                    
+                    vCol = n.rg*noise(pos*1000., 1., 1., .5, 1., vec4(0.)).r;
+                    gl_Position = vec4(dpos, 0., 1.);
+                    gl_PointSize = max(1., uExplosionScale);
+                }
+            `;
+            
+            setShader(particleSystem.gl, particleSystem.program, modifiedVert, frag);
+            particleSystem.gl.linkProgram(particleSystem.program);
+            particleSystem.gl.useProgram(particleSystem.program);
+
+            // resize
+            resizeCanvas(particleSystem.canvasWebGL2, particleSystem.gl, width, height);
+            resizeCanvas(particleSystem.canvas2D, particleSystem.gl, width, height);
+
+            // set random value
+            const randomVec2 = [random(0, 300), random(0, 300)];
+            const randomVec2Loc = particleSystem.gl.getUniformLocation(particleSystem.program, "uRandomVec2");
+            particleSystem.gl.uniform2fv(randomVec2Loc, randomVec2);
+
+            // get uniform locations
+            particleSystem.timeLoc = particleSystem.gl.getUniformLocation(particleSystem.program, "uTime");
+            particleSystem.explosionScaleLoc = particleSystem.gl.getUniformLocation(particleSystem.program, "uExplosionScale");
+            particleSystem.armSplitLoc = particleSystem.gl.getUniformLocation(particleSystem.program, "uArmSplit");
+            particleSystem.armSplitStrengthLoc = particleSystem.gl.getUniformLocation(particleSystem.program, "uArmSplitStrength");
+            particleSystem.stretchModeLoc = particleSystem.gl.getUniformLocation(particleSystem.program, "uStretchMode");
+            particleSystem.stretchStrengthLoc = particleSystem.gl.getUniformLocation(particleSystem.program, "uStretchStrength");
+            // 实时姿态响应uniform位置
+            particleSystem.leftHandPosLoc = particleSystem.gl.getUniformLocation(particleSystem.program, "uLeftHandPos");
+            particleSystem.rightHandPosLoc = particleSystem.gl.getUniformLocation(particleSystem.program, "uRightHandPos");
+            particleSystem.bodyEnergyLoc = particleSystem.gl.getUniformLocation(particleSystem.program, "uBodyEnergy");
+            particleSystem.handInfluenceLoc = particleSystem.gl.getUniformLocation(particleSystem.program, "uHandInfluence");
+
+            // buffer data
+            let positionData = [];
+            let offsetData = [];
+            let texCoordData = [];
+
+            // generate buffer data
+            particleSystem.cols = width / 2;
+            particleSystem.rows = height / 2;
+            const [xOff, yOff] = [2 / particleSystem.cols, 2 / particleSystem.rows];
+            const [uOff, vOff] = [1 / particleSystem.cols, 1 / particleSystem.rows];
+            
+            for (let col = 0; col < particleSystem.cols; col++) {
+                for (let row = 0; row < particleSystem.rows; row++) {
+                    positionData.push(-1 + xOff * col + 1 / particleSystem.cols);
+                    positionData.push(1 - yOff * row - 1 / particleSystem.rows);
+                    texCoordData.push((col + 1 / particleSystem.cols) * uOff);
+                    texCoordData.push((row + 1 / particleSystem.rows) * vOff);
+                }
+            }
+
+            // set attribute
+            setAttributeVec2(particleSystem.gl, particleSystem.program, "aPosition", positionData);
+            setAttributeVec2(particleSystem.gl, particleSystem.program, "aTexCoord", texCoordData);
+
+            // draw call
+            const draw = () => {
+                // 更新爆炸效果
+                if (particleSystem.isExploding) {
+                    const explosionDuration = 2.0; // 爆炸持续时间（秒）
+                    const elapsedTime = particleSystem.time - particleSystem.explosionStartTime;
+                    
+                    if (elapsedTime < explosionDuration) {
+                        // 爆炸阶段：先快速放大，然后快速缩小
+                        const progress = elapsedTime / explosionDuration;
+                        
+                        if (progress < 0.3) {
+                            // 前30%时间快速放大到3倍
+                            particleSystem.explosionScale = 1.0 + (progress / 0.3) * 2.0;
+                        } else {
+                            // 后70%时间快速缩小回原大小
+                            const shrinkProgress = (progress - 0.3) / 0.7;
+                            particleSystem.explosionScale = 3.0 - shrinkProgress * 2.0;
+                        }
+                    } else {
+                        // 爆炸结束，重置状态
+                        particleSystem.isExploding = false;
+                        particleSystem.explosionScale = 1.0;
+                    }
+                }
+
+                // 更新屈臂分裂效果
+                if (particleSystem.isArmSplitting) {
+                    const splitDuration = 3.0; // 分裂持续时间（秒）
+                    const elapsedTime = particleSystem.time - particleSystem.armSplitStartTime;
+                    
+                    if (elapsedTime < splitDuration) {
+                        // 分裂阶段：逐渐增强分裂效果，然后逐渐恢复
+                        const progress = elapsedTime / splitDuration;
+                        
+                        if (progress < 0.4) {
+                            // 前40%时间逐渐分裂
+                            particleSystem.armSplitStrength = (progress / 0.4) * 0.8;
+                        } else if (progress < 0.7) {
+                            // 中间30%时间保持最大分裂
+                            particleSystem.armSplitStrength = 0.8;
+                        } else {
+                            // 后30%时间逐渐恢复
+                            const recoverProgress = (progress - 0.7) / 0.3;
+                            particleSystem.armSplitStrength = 0.8 * (1.0 - recoverProgress);
+                        }
+                    } else {
+                        // 分裂结束，重置状态
+                        particleSystem.isArmSplitting = false;
+                        particleSystem.armSplitStrength = 0.0;
+                    }
+                }
+
+                // 更新伸展横向运动效果
+                if (particleSystem.isStretching) {
+                    const stretchDuration = 4.0; // 伸展持续时间（秒）
+                    const elapsedTime = particleSystem.time - particleSystem.stretchStartTime;
+                    
+                    if (elapsedTime < stretchDuration) {
+                        // 伸展阶段：逐渐转换为横向运动，然后逐渐恢复
+                        const progress = elapsedTime / stretchDuration;
+                        
+                        if (progress < 0.3) {
+                            // 前30%时间逐渐转换为横向运动
+                            particleSystem.stretchStrength = (progress / 0.3) * 1.0;
+                        } else if (progress < 0.7) {
+                            // 中间40%时间保持横向运动
+                            particleSystem.stretchStrength = 1.0;
+                        } else {
+                            // 后30%时间逐渐恢复随机运动
+                            const recoverProgress = (progress - 0.7) / 0.3;
+                            particleSystem.stretchStrength = 1.0 * (1.0 - recoverProgress);
+                        }
+                    } else {
+                        // 伸展结束，重置状态
+                        particleSystem.isStretching = false;
+                        particleSystem.stretchStrength = 0.0;
+                    }
+                }
+
+                particleSystem.gl.clearColor(0, 0, 0, 0.1);
+                particleSystem.gl.clear(particleSystem.gl.COLOR_BUFFER_BIT);
+                particleSystem.gl.uniform1f(particleSystem.timeLoc, particleSystem.time);
+                particleSystem.gl.uniform1f(particleSystem.explosionScaleLoc, particleSystem.explosionScale);
+                particleSystem.gl.uniform1f(particleSystem.armSplitLoc, particleSystem.isArmSplitting ? 1.0 : 0.0);
+                particleSystem.gl.uniform1f(particleSystem.armSplitStrengthLoc, particleSystem.armSplitStrength);
+                particleSystem.gl.uniform1f(particleSystem.stretchModeLoc, particleSystem.isStretching ? 1.0 : 0.0);
+                particleSystem.gl.uniform1f(particleSystem.stretchStrengthLoc, particleSystem.stretchStrength);
+                // 更新实时姿态数据
+                particleSystem.gl.uniform2fv(particleSystem.leftHandPosLoc, particleSystem.leftHandPos);
+                particleSystem.gl.uniform2fv(particleSystem.rightHandPosLoc, particleSystem.rightHandPos);
+                particleSystem.gl.uniform1f(particleSystem.bodyEnergyLoc, particleSystem.bodyEnergy);
+                particleSystem.gl.uniform1f(particleSystem.handInfluenceLoc, particleSystem.handInfluence);
+                
+                // 更新调试显示
+                const energyDisplay = document.getElementById('energyDisplay');
+                const influenceDisplay = document.getElementById('influenceDisplay');
+                if (energyDisplay) energyDisplay.textContent = particleSystem.bodyEnergy.toFixed(2);
+                if (influenceDisplay) influenceDisplay.textContent = particleSystem.handInfluence.toFixed(2);
+                
+                particleSystem.gl.drawArrays(particleSystem.gl.POINTS, 0, particleSystem.cols * particleSystem.rows);
+                
+                particleSystem.time += 0.02; // 恢复原始粒子运动速度
+                drawImage(particleSystem.canvasWebGL2, particleSystem.canvas2D);
+                window.requestAnimationFrame(draw);
+            };
+
+            draw();
+        };
+        
+        // 等待所有脚本加载完成后初始化
+        window.addEventListener('load', () => {
+            // 初始化粒子效果
+            setTimeout(initParticleEffect, 100);
+        });
+        
+
+    </script>
+    
+    <!-- 人体识别脚本 -->
+    <script src="combined-script.js"></script>
+</body>
+</html> 

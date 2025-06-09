@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>截图展示画廊</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #000;
+        }
+        
+        .gallery-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            background-color: #000;
+        }
+        
+        /* 左侧开始截图区域 */
+        .start-section {
+            width: 50%;
+            height: 100%;
+            position: relative;
+            border-right: 2px solid #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #111 0%, #222 100%);
+        }
+        
+        .start-title {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 12px;
+        }
+        
+        .start-image {
+            max-width: 90%;
+            max-height: 80%;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            transition: transform 0.3s ease;
+        }
+        
+        .start-image:hover {
+            transform: scale(1.02);
+        }
+        
+        .no-image-placeholder {
+            width: 400px;
+            height: 300px;
+            border: 3px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 18px;
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(5px);
+        }
+        
+        /* 右侧动作截图区域 */
+        .action-section {
+            width: 50%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #222 0%, #111 100%);
+        }
+        
+        .action-title {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 12px;
+        }
+        
+        .action-image {
+            max-width: 90%;
+            max-height: 80%;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            transition: all 0.5s ease;
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        
+        .action-image.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        /* 控制面板 */
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(15px);
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .controls button {
+            padding: 12px 24px;
+            font-size: 14px;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.9);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .controls button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .controls button.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+        }
+        
+        .status-info {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        /* 图片信息显示 */
+        .image-info {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 12px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        /* 播放指示器 */
+        .play-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="gallery-container">
+        <!-- 左侧开始截图区域 -->
+        <div class="start-section">
+            <div class="start-title">开始识别截图</div>
+            <img id="startImage" class="start-image hidden" alt="开始识别截图">
+            <div id="startPlaceholder" class="no-image-placeholder">
+                <div>
+                    <div>暂无开始识别截图</div>
+                    <div style="font-size: 14px; margin-top: 10px; opacity: 0.7;">请先在主页面开始识别</div>
+                </div>
+            </div>
+            <div id="startInfo" class="image-info hidden"></div>
+        </div>
+        
+        <!-- 右侧动作截图区域 -->
+        <div class="action-section">
+            <div class="action-title">动作截图轮播</div>
+            <img id="actionImage" class="action-image" alt="动作截图">
+            <div id="actionPlaceholder" class="no-image-placeholder">
+                <div>
+                    <div>暂无动作截图</div>
+                    <div style="font-size: 14px; margin-top: 10px; opacity: 0.7;">执行动作后会自动截图</div>
+                </div>
+            </div>
+            <div id="playIndicator" class="play-indicator hidden">▶</div>
+            <div id="actionInfo" class="image-info hidden"></div>
+        </div>
+    </div>
+    
+    <!-- 控制面板 -->
+    <div class="controls">
+        <button id="refreshBtn">刷新截图</button>
+        <button id="playPauseBtn">暂停播放</button>
+        <button id="backBtn">返回主页</button>
+        <div class="status-info">
+            <span id="statusText">动作截图: 0 张</span>
+        </div>
+    </div>
+
+    <script>
+        let actionScreenshots = [];
+        let currentActionIndex = 0;
+        let isPlaying = true;
+        let playInterval = null;
+        
+        // DOM元素
+        const startImage = document.getElementById('startImage');
+        const startPlaceholder = document.getElementById('startPlaceholder');
+        const startInfo = document.getElementById('startInfo');
+        const actionImage = document.getElementById('actionImage');
+        const actionPlaceholder = document.getElementById('actionPlaceholder');
+        const actionInfo = document.getElementById('actionInfo');
+        const playIndicator = document.getElementById('playIndicator');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const backBtn = document.getElementById('backBtn');
+        const statusText = document.getElementById('statusText');
+        
+        // 加载截图数据
+        function loadScreenshots() {
+            try {
+                // 加载开始截图
+                const startScreenshotData = localStorage.getItem('startScreenshot');
+                if (startScreenshotData) {
+                    const startData = JSON.parse(startScreenshotData);
+                    startImage.src = startData.data;
+                    startImage.classList.remove('hidden');
+                    startPlaceholder.classList.add('hidden');
+                    startInfo.textContent = `${startData.type} - ${startData.timestamp}`;
+                    startInfo.classList.remove('hidden');
+                } else {
+                    startImage.classList.add('hidden');
+                    startPlaceholder.classList.remove('hidden');
+                    startInfo.classList.add('hidden');
+                }
+                
+                // 加载动作截图
+                const actionScreenshotsData = localStorage.getItem('actionScreenshots');
+                if (actionScreenshotsData) {
+                    actionScreenshots = JSON.parse(actionScreenshotsData);
+                } else {
+                    actionScreenshots = [];
+                }
+                
+                updateActionDisplay();
+                updateStatus();
+                
+            } catch (error) {
+                console.error('加载截图数据失败:', error);
+            }
+        }
+        
+        // 更新动作截图显示
+        function updateActionDisplay() {
+            if (actionScreenshots.length > 0) {
+                actionPlaceholder.classList.add('hidden');
+                actionImage.classList.remove('hidden');
+                playIndicator.classList.remove('hidden');
+                showActionImage(currentActionIndex);
+                if (isPlaying && !playInterval) {
+                    startSlideshow();
+                }
+            } else {
+                actionImage.classList.add('hidden');
+                actionPlaceholder.classList.remove('hidden');
+                playIndicator.classList.add('hidden');
+                actionInfo.classList.add('hidden');
+                stopSlideshow();
+            }
+        }
+        
+        // 显示指定索引的动作截图
+        function showActionImage(index) {
+            if (actionScreenshots.length === 0) return;
+            
+            const screenshot = actionScreenshots[index];
+            actionImage.classList.remove('active');
+            
+            setTimeout(() => {
+                actionImage.src = screenshot.data;
+                actionImage.classList.add('active');
+                actionInfo.textContent = `${screenshot.type} - ${screenshot.timestamp} (${index + 1}/${actionScreenshots.length})`;
+                actionInfo.classList.remove('hidden');
+            }, 250);
+        }
+        
+        // 开始幻灯片播放
+        function startSlideshow() {
+            if (actionScreenshots.length <= 1) return;
+            
+            playInterval = setInterval(() => {
+                currentActionIndex = (currentActionIndex + 1) % actionScreenshots.length;
+                showActionImage(currentActionIndex);
+            }, 3000); // 每3秒切换一张
+        }
+        
+        // 停止幻灯片播放
+        function stopSlideshow() {
+            if (playInterval) {
+                clearInterval(playInterval);
+                playInterval = null;
+            }
+        }
+        
+        // 切换播放/暂停
+        function togglePlayPause() {
+            if (actionScreenshots.length <= 1) return;
+            
+            isPlaying = !isPlaying;
+            
+            if (isPlaying) {
+                playPauseBtn.textContent = '暂停播放';
+                playPauseBtn.classList.remove('active');
+                playIndicator.classList.remove('hidden');
+                startSlideshow();
+            } else {
+                playPauseBtn.textContent = '开始播放';
+                playPauseBtn.classList.add('active');
+                playIndicator.classList.add('hidden');
+                stopSlideshow();
+            }
+        }
+        
+        // 更新状态显示
+        function updateStatus() {
+            statusText.textContent = `动作截图: ${actionScreenshots.length} 张`;
+        }
+        
+        // 刷新截图数据
+        function refreshScreenshots() {
+            currentActionIndex = 0;
+            loadScreenshots();
+        }
+        
+        // 返回主页
+        function goBack() {
+            window.location.href = 'combined.html';
+        }
+        
+        // 事件监听器
+        refreshBtn.addEventListener('click', refreshScreenshots);
+        playPauseBtn.addEventListener('click', togglePlayPause);
+        backBtn.addEventListener('click', goBack);
+        
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case ' ': // 空格键切换播放/暂停
+                    e.preventDefault();
+                    togglePlayPause();
+                    break;
+                case 'r': // R键刷新
+                case 'R':
+                    refreshScreenshots();
+                    break;
+                case 'Escape': // ESC键返回
+                    goBack();
+                    break;
+                case 'ArrowLeft': // 左箭头上一张
+                    if (actionScreenshots.length > 0) {
+                        currentActionIndex = (currentActionIndex - 1 + actionScreenshots.length) % actionScreenshots.length;
+                        showActionImage(currentActionIndex);
+                    }
+                    break;
+                case 'ArrowRight': // 右箭头下一张
+                    if (actionScreenshots.length > 0) {
+                        currentActionIndex = (currentActionIndex + 1) % actionScreenshots.length;
+                        showActionImage(currentActionIndex);
+                    }
+                    break;
+            }
+        });
+        
+        // 自动刷新功能（每5秒检查一次新截图）
+        setInterval(() => {
+            const currentCount = actionScreenshots.length;
+            const newActionData = localStorage.getItem('actionScreenshots');
+            if (newActionData) {
+                const newScreenshots = JSON.parse(newActionData);
+                if (newScreenshots.length !== currentCount) {
+                    refreshScreenshots();
+                }
+            }
+        }, 5000);
+        
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            loadScreenshots();
+        });
+    </script>
+</body>
+</html> 
