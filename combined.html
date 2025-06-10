@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <title>粒子效果与人体识别整合页面</title>
+    <title>粒子效果与人体识别整合页面（带3D噪声）</title>
     <style>
         body, html {
             margin: 0;
@@ -25,7 +25,6 @@
             width: 100%;
             height: 100%;
             position: relative;
-            /* 移除固定背景，让JavaScript动态控制 */
         }
         
         .particle-title {
@@ -288,6 +287,8 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
         
+
+        
         /* 状态显示 */
         #status {
             position: fixed;
@@ -389,6 +390,8 @@
         <button id="galleryBtn">查看截图</button>
     </div>
     
+
+    
     <!-- 动作识别控制面板 -->
     <div class="action-controls">
         <h3>动作识别设置</h3>
@@ -442,6 +445,10 @@
             <span class="key">B</span>
             <span>屈肘抬臂 (深蓝→紫→金)</span>
         </div>
+        <div class="control-hint">
+            <span class="key">N</span>
+            <span>切换噪声开关</span>
+        </div>
     </div>
     
     <!-- 状态显示 -->
@@ -467,6 +474,107 @@
         }, true);
     </script>
     
+    <!-- 3D噪声函数库 -->
+    <script>
+        // 简化的3D Perlin噪声实现
+        class Noise3D {
+            constructor() {
+                this.permutation = [];
+                this.p = [];
+                
+                // 初始化排列表
+                for (let i = 0; i < 256; i++) {
+                    this.permutation[i] = i;
+                }
+                
+                // 打乱排列
+                for (let i = 255; i >= 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.permutation[i], this.permutation[j]] = [this.permutation[j], this.permutation[i]];
+                }
+                
+                // 扩展到512
+                for (let i = 0; i < 512; i++) {
+                    this.p[i] = this.permutation[i % 256];
+                }
+            }
+            
+            // 3D噪声函数
+            noise(x, y, z) {
+                // 找到单位立方体的坐标
+                const X = Math.floor(x) & 255;
+                const Y = Math.floor(y) & 255;
+                const Z = Math.floor(z) & 255;
+                
+                // 找到相对坐标
+                x -= Math.floor(x);
+                y -= Math.floor(y);
+                z -= Math.floor(z);
+                
+                // 计算淡入淡出曲线
+                const u = this.fade(x);
+                const v = this.fade(y);
+                const w = this.fade(z);
+                
+                // 计算散列坐标
+                const A = this.p[X] + Y;
+                const AA = this.p[A] + Z;
+                const AB = this.p[A + 1] + Z;
+                const B = this.p[X + 1] + Y;
+                const BA = this.p[B] + Z;
+                const BB = this.p[B + 1] + Z;
+                
+                // 返回插值结果
+                return this.lerp(w,
+                    this.lerp(v,
+                        this.lerp(u, this.grad(this.p[AA], x, y, z),
+                                    this.grad(this.p[BA], x - 1, y, z)),
+                        this.lerp(u, this.grad(this.p[AB], x, y - 1, z),
+                                    this.grad(this.p[BB], x - 1, y - 1, z))),
+                    this.lerp(v,
+                        this.lerp(u, this.grad(this.p[AA + 1], x, y, z - 1),
+                                    this.grad(this.p[BA + 1], x - 1, y, z - 1)),
+                        this.lerp(u, this.grad(this.p[AB + 1], x, y - 1, z - 1),
+                                    this.grad(this.p[BB + 1], x - 1, y - 1, z - 1))));
+            }
+            
+            fade(t) {
+                return t * t * t * (t * (t * 6 - 15) + 10);
+            }
+            
+            lerp(t, a, b) {
+                return a + t * (b - a);
+            }
+            
+            grad(hash, x, y, z) {
+                const h = hash & 15;
+                const u = h < 8 ? x : y;
+                const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+                return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+            }
+            
+            // 分形噪声（多层噪声）
+            fractalNoise(x, y, z, octaves = 4, persistence = 0.5) {
+                let total = 0;
+                let frequency = 1;
+                let amplitude = 1;
+                let maxValue = 0;
+                
+                for (let i = 0; i < octaves; i++) {
+                    total += this.noise(x * frequency, y * frequency, z * frequency) * amplitude;
+                    maxValue += amplitude;
+                    amplitude *= persistence;
+                    frequency *= 2;
+                }
+                
+                return total / maxValue;
+            }
+        }
+        
+        // 全局噪声实例
+        const noise3D = new Noise3D();
+    </script>
+    
     <!-- 粒子效果脚本 -->
     <script>
         let scene, camera, renderer, particleSystem;
@@ -484,12 +592,31 @@
         const burstDuration = 1.0;
         const armDuration = 1.8;
         
+        // 3D噪声参数
+        let noiseEnabled = true;
+        let noiseStrength = 0.8;
+        let noiseFrequency = 0.005;
+        let noiseSpeed = 1.0;
+        let colorNoiseStrength = 0.3;
+        let sizeNoiseStrength = 0.5;
+        
         // 记录每个粒子的运动模式和创建时间
         let particleStates = new Array(particleCount).fill().map(() => ({
             mode: 'normal', // 'normal', 'falling', 'arming', 'rising', 'arm_bursting'
             createdAt: 0,
             armTarget: { x: 0, y: 0, z: 0 }, // 聚集目标点
-            spiralPhase: Math.random() * Math.PI * 2 // 螺旋相位
+            spiralPhase: Math.random() * Math.PI * 2, // 螺旋相位
+            noiseOffset: { // 每个粒子的噪声偏移
+                x: Math.random() * 1000,
+                y: Math.random() * 1000,
+                z: Math.random() * 1000
+            },
+            originalColor: { // 存储原始颜色
+                r: 0.3 + Math.random() * 0.1,
+                g: 0.5 + Math.random() * 0.1,
+                b: 1.0
+            },
+            originalSize: 2.0 + Math.random() * 2.0 // 存储原始大小
         }));
         
         // 全局函数，供人体识别调用
@@ -537,6 +664,10 @@
                     triggerArm();
                 }
             }
+            if (e.key === 'n' || e.key === 'N') {
+                noiseEnabled = !noiseEnabled;
+                console.log('噪声', noiseEnabled ? '开启' : '关闭');
+            }
         });
 
         function init() {
@@ -562,19 +693,32 @@
                 positions[i * 3 + 1] = y;
                 positions[i * 3 + 2] = z;
 
-                sizes[i] = 2.0 + Math.random() * 2.0;
+                const originalSize = 2.0 + Math.random() * 2.0;
+                sizes[i] = originalSize;
 
                 // 蓝色粒子
-                colors[i * 3] = 0.3 + Math.random() * 0.1;
-                colors[i * 3 + 1] = 0.5 + Math.random() * 0.1;
-                colors[i * 3 + 2] = 1.0;
+                const originalColor = {
+                    r: 0.3 + Math.random() * 0.1,
+                    g: 0.5 + Math.random() * 0.1,
+                    b: 1.0
+                };
+                colors[i * 3] = originalColor.r;
+                colors[i * 3 + 1] = originalColor.g;
+                colors[i * 3 + 2] = originalColor.b;
                 
                 // 初始化粒子状态
                 particleStates[i] = {
                     mode: 'normal',
                     createdAt: 0,
                     armTarget: { x: 0, y: 0, z: 0 },
-                    spiralPhase: Math.random() * Math.PI * 2
+                    spiralPhase: Math.random() * Math.PI * 2,
+                    noiseOffset: {
+                        x: Math.random() * 1000,
+                        y: Math.random() * 1000,
+                        z: Math.random() * 1000
+                    },
+                    originalColor: originalColor,
+                    originalSize: originalSize
                 };
             }
 
@@ -667,6 +811,8 @@
             requestAnimationFrame(animate);
 
             const positions = geometry.attributes.position.array;
+            const colors = geometry.attributes.aColor.array;
+            const sizes = geometry.attributes.size.array;
             const time = performance.now() * 0.001;
 
             // 爆发效果 - 延长持续时间
@@ -705,11 +851,47 @@
                 let z = positions[idx + 2];
                 let dist = Math.sqrt(x * x + y * y + z * z);
                 
+                // 3D噪声计算
+                let noiseX = 0, noiseY = 0, noiseZ = 0;
+                if (noiseEnabled) {
+                    const noiseTime = time * noiseSpeed;
+                    const particleState = particleStates[i];
+                    
+                    // 计算噪声位置
+                    const noiseInputX = (x + particleState.noiseOffset.x) * noiseFrequency;
+                    const noiseInputY = (y + particleState.noiseOffset.y) * noiseFrequency;
+                    const noiseInputZ = (z + particleState.noiseOffset.z) * noiseFrequency;
+                    
+                    // 获取3D噪声值
+                    noiseX = noise3D.fractalNoise(noiseInputX, noiseInputY, noiseInputZ + noiseTime) * noiseStrength;
+                    noiseY = noise3D.fractalNoise(noiseInputX + 100, noiseInputY, noiseInputZ + noiseTime) * noiseStrength;
+                    noiseZ = noise3D.fractalNoise(noiseInputX, noiseInputY + 100, noiseInputZ + noiseTime) * noiseStrength;
+                    
+                    // 颜色噪声
+                    if (colorNoiseStrength > 0) {
+                        const colorNoise = noise3D.noise(noiseInputX * 2, noiseInputY * 2, noiseInputZ * 2 + noiseTime * 0.5);
+                        const colorVariation = colorNoise * colorNoiseStrength;
+                        
+                        colors[idx] = Math.max(0, Math.min(1, particleState.originalColor.r + colorVariation));
+                        colors[idx + 1] = Math.max(0, Math.min(1, particleState.originalColor.g + colorVariation * 0.5));
+                        colors[idx + 2] = Math.max(0, Math.min(1, particleState.originalColor.b + colorVariation * 0.3));
+                    }
+                    
+                    // 大小噪声
+                    if (sizeNoiseStrength > 0) {
+                        const sizeNoise = noise3D.noise(noiseInputX * 3, noiseInputY * 3, noiseInputZ * 3 + noiseTime * 0.3);
+                        const sizeVariation = 1 + sizeNoise * sizeNoiseStrength;
+                        sizes[i] = Math.max(0.5, particleState.originalSize * sizeVariation);
+                    }
+                }
+                
                 // 根据粒子状态决定运动方式
                 if (particleStates[i].mode === 'falling') {
                     // 下落粒子：向下移动
                     let fallSpeed = 0.8 * burstFactor;
-                    positions[idx + 1] -= fallSpeed;
+                    positions[idx] += noiseX;
+                    positions[idx + 1] -= fallSpeed + noiseY;
+                    positions[idx + 2] += noiseZ;
                     
                     // 如果粒子落到底部，重新在中心生成并改为正常模式
                     if (y < -120) {
@@ -731,9 +913,9 @@
                         let target = particleStates[i].armTarget;
                         let lerpSpeed = 0.08 * progress;
                         
-                        positions[idx] += (target.x - x) * lerpSpeed;
-                        positions[idx + 1] += (target.y - y) * lerpSpeed;
-                        positions[idx + 2] += (target.z - z) * lerpSpeed;
+                        positions[idx] += (target.x - x) * lerpSpeed + noiseX * 0.5;
+                        positions[idx + 1] += (target.y - y) * lerpSpeed + noiseY * 0.5;
+                        positions[idx + 2] += (target.z - z) * lerpSpeed + noiseZ * 0.5;
                     } else if (armPhase < 0.8) {
                         // 阶段2：螺旋上升 (0.3-0.8)
                         let progress = (armPhase - 0.3) / 0.5;
@@ -744,26 +926,27 @@
                         let spiralX = Math.cos(particleStates[i].spiralPhase) * spiralRadius;
                         let spiralZ = Math.sin(particleStates[i].spiralPhase) * spiralRadius;
                         
-                        positions[idx] = particleStates[i].armTarget.x + spiralX;
-                        positions[idx + 1] += spiralSpeed;
-                        positions[idx + 2] = particleStates[i].armTarget.z + spiralZ;
+                        positions[idx] = particleStates[i].armTarget.x + spiralX + noiseX;
+                        positions[idx + 1] += spiralSpeed + noiseY;
+                        positions[idx + 2] = particleStates[i].armTarget.z + spiralZ + noiseZ;
                     } else {
                         // 阶段3：顶点爆发 (0.8-1.0)
                         let progress = (armPhase - 0.8) / 0.2;
                         let explosionSpeed = 3.0 * progress;
                         let dir = new THREE.Vector3(x - particleStates[i].armTarget.x, y - particleStates[i].armTarget.y, z - particleStates[i].armTarget.z).normalize();
                         
-                        positions[idx] += dir.x * explosionSpeed;
-                        positions[idx + 1] += dir.y * explosionSpeed + 1.0; // 向上偏移
-                        positions[idx + 2] += dir.z * explosionSpeed;
+                        positions[idx] += dir.x * explosionSpeed + noiseX;
+                        positions[idx + 1] += dir.y * explosionSpeed + 1.0 + noiseY; // 向上偏移
+                        positions[idx + 2] += dir.z * explosionSpeed + noiseZ;
                     }
                 } else {
                     // 正常粒子：向外扩散
                     let speed = (0.06 + dist * 0.004) * burstFactor;
                     let dir = new THREE.Vector3(x, y, z).normalize();
-                    positions[idx] += dir.x * speed;
-                    positions[idx + 1] += dir.y * speed;
-                    positions[idx + 2] += dir.z * speed;
+                    
+                    positions[idx] += dir.x * speed + noiseX;
+                    positions[idx + 1] += dir.y * speed + noiseY;
+                    positions[idx + 2] += dir.z * speed + noiseZ;
                     
                     // 如果粒子移动太远，重新在中心生成
                     if (dist > 600) {
@@ -779,9 +962,53 @@
             }
 
             geometry.attributes.position.needsUpdate = true;
+            geometry.attributes.aColor.needsUpdate = true;
+            geometry.attributes.size.needsUpdate = true;
             particleSystem.rotation.y += 0.0002;
             updateBackground();
             renderer.render(scene, camera);
+        }
+
+        function initNoiseControls() {
+            // 噪声强度控制
+            const noiseStrengthSlider = document.getElementById('noiseStrength');
+            const noiseStrengthValue = document.getElementById('noiseStrengthValue');
+            noiseStrengthSlider.addEventListener('input', (e) => {
+                noiseStrength = parseFloat(e.target.value);
+                noiseStrengthValue.textContent = noiseStrength.toFixed(1);
+            });
+
+            // 噪声频率控制
+            const noiseFrequencySlider = document.getElementById('noiseFrequency');
+            const noiseFrequencyValue = document.getElementById('noiseFrequencyValue');
+            noiseFrequencySlider.addEventListener('input', (e) => {
+                noiseFrequency = parseFloat(e.target.value);
+                noiseFrequencyValue.textContent = noiseFrequency.toFixed(3);
+            });
+
+            // 噪声速度控制
+            const noiseSpeedSlider = document.getElementById('noiseSpeed');
+            const noiseSpeedValue = document.getElementById('noiseSpeedValue');
+            noiseSpeedSlider.addEventListener('input', (e) => {
+                noiseSpeed = parseFloat(e.target.value);
+                noiseSpeedValue.textContent = noiseSpeed.toFixed(1);
+            });
+
+            // 颜色噪声控制
+            const colorNoiseSlider = document.getElementById('colorNoise');
+            const colorNoiseValue = document.getElementById('colorNoiseValue');
+            colorNoiseSlider.addEventListener('input', (e) => {
+                colorNoiseStrength = parseFloat(e.target.value);
+                colorNoiseValue.textContent = colorNoiseStrength.toFixed(1);
+            });
+
+            // 大小噪声控制
+            const sizeNoiseSlider = document.getElementById('sizeNoise');
+            const sizeNoiseValue = document.getElementById('sizeNoiseValue');
+            sizeNoiseSlider.addEventListener('input', (e) => {
+                sizeNoiseStrength = parseFloat(e.target.value);
+                sizeNoiseValue.textContent = sizeNoiseStrength.toFixed(1);
+            });
         }
 
         function lerpColor(c1, c2, t) {
