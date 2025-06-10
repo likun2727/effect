@@ -42,18 +42,24 @@
     let bgPhase = 0;
     let particleSquat = 0;
     let bgSquat = 0;
+    let bgArm = 0;
     let isBursting = false;
+    let isArming = false;
     let bgBurst = 0;
     let innerMix = bgBurst;
     let midMix = bgBurst * 0.5;
     let outMix = bgBurst * 0.2;
     let burstStartTime = 0;
+    let armStartTime = 0;
     const burstDuration = 1.0;
+    const armDuration = 1.8;
     
     // 修改：记录每个粒子的运动模式和创建时间
     let particleStates = new Array(particleCount).fill().map(() => ({
-      mode: 'normal', // 'normal' 或 'falling'
-      createdAt: 0
+      mode: 'normal', // 'normal', 'falling', 'arming', 'rising', 'arm_bursting'
+      createdAt: 0,
+      armTarget: { x: 0, y: 0, z: 0 }, // 聚集目标点
+      spiralPhase: Math.random() * Math.PI * 2 // 螺旋相位
     }));
     
     init();
@@ -73,6 +79,11 @@
         for (let i = 0; i < particleCount; i++) {
           particleStates[i].mode = 'falling';
           particleStates[i].createdAt = currentTime;
+        }
+      }
+      if (e.key === 'b' || e.key === 'B') {
+        if (!isArming) {
+          triggerArm();
         }
       }
     });
@@ -176,6 +187,27 @@
       }
     }
 
+    function triggerArm() {
+      if (!isArming) {
+        isArming = true;
+        armStartTime = performance.now() * 0.001;
+        bgArm = 1.0;
+        
+        // 设置聚集目标点（模拟肘部位置，在右下方）
+        const elbowX = 40;
+        const elbowY = -20;
+        const elbowZ = 0;
+        
+        const currentTime = performance.now() * 0.001;
+        for (let i = 0; i < particleCount; i++) {
+          particleStates[i].mode = 'arming';
+          particleStates[i].createdAt = currentTime;
+          particleStates[i].armTarget = { x: elbowX, y: elbowY, z: elbowZ };
+          particleStates[i].spiralPhase = Math.random() * Math.PI * 2;
+        }
+      }
+    }
+
     function animate() {
       requestAnimationFrame(animate);
 
@@ -190,6 +222,23 @@
           burstFactor = 1.0 + 2.5 * Math.max(0, 1 - elapsed / burstDuration);
         } else {
           isBursting = false;
+        }
+      }
+
+      // 抬臂效果
+      let armPhase = 0;
+      if (isArming) {
+        const elapsed = time - armStartTime;
+        if (elapsed < armDuration) {
+          armPhase = elapsed / armDuration;
+        } else {
+          isArming = false;
+          // 抬臂结束后，粒子回到正常模式
+          for (let i = 0; i < particleCount; i++) {
+            if (particleStates[i].mode.includes('arm')) {
+              particleStates[i].mode = 'normal';
+            }
+          }
         }
       }
 
@@ -217,6 +266,40 @@
             // 重新生成的粒子恢复正常模式
             particleStates[i].mode = 'normal';
             particleStates[i].createdAt = time;
+          }
+        } else if (particleStates[i].mode === 'arming') {
+          // 抬臂效果
+          if (armPhase < 0.3) {
+            // 阶段1：聚集到肘部位置 (0-0.3)
+            let progress = armPhase / 0.3;
+            let target = particleStates[i].armTarget;
+            let lerpSpeed = 0.08 * progress;
+            
+            positions[idx] += (target.x - x) * lerpSpeed;
+            positions[idx + 1] += (target.y - y) * lerpSpeed;
+            positions[idx + 2] += (target.z - z) * lerpSpeed;
+          } else if (armPhase < 0.8) {
+            // 阶段2：螺旋上升 (0.3-0.8)
+            let progress = (armPhase - 0.3) / 0.5;
+            let spiralRadius = 15 * (1 - progress * 0.5);
+            let spiralSpeed = 2.0;
+            
+            particleStates[i].spiralPhase += 0.15;
+            let spiralX = Math.cos(particleStates[i].spiralPhase) * spiralRadius;
+            let spiralZ = Math.sin(particleStates[i].spiralPhase) * spiralRadius;
+            
+            positions[idx] = particleStates[i].armTarget.x + spiralX;
+            positions[idx + 1] += spiralSpeed;
+            positions[idx + 2] = particleStates[i].armTarget.z + spiralZ;
+          } else {
+            // 阶段3：顶点爆发 (0.8-1.0)
+            let progress = (armPhase - 0.8) / 0.2;
+            let explosionSpeed = 3.0 * progress;
+            let dir = new THREE.Vector3(x - particleStates[i].armTarget.x, y - particleStates[i].armTarget.y, z - particleStates[i].armTarget.z).normalize();
+            
+            positions[idx] += dir.x * explosionSpeed;
+            positions[idx + 1] += dir.y * explosionSpeed + 1.0; // 向上偏移
+            positions[idx + 2] += dir.z * explosionSpeed;
           }
         } else {
           // 正常粒子：向外扩散
@@ -265,9 +348,14 @@
         bgSquat -= 0.015; // 比原来快5倍
         if (bgSquat < 0) bgSquat = 0;
       }
+      if (bgArm > 0) {
+        bgArm -= 0.006; // 抬臂效果恢复速度
+        if (bgArm < 0) bgArm = 0;
+      }
 
       let mixBurst = bgBurst;
       let mixSquat = bgSquat * (1 - mixBurst);
+      let mixArm = bgArm * (1 - mixBurst) * (1 - mixSquat);
 
       // 计算渐变位置和环位置
       const centerY = 50 + Math.cos(bgPhase * 0.5) * 5;
@@ -286,7 +374,38 @@
 
       let gradientString = '';
 
-      if (mixSquat > 0) {
+      if (mixArm > 0) {
+        // 抬臂模式：从深蓝→紫色→金黄色的渐变上升
+        const armPhase = isArming ? (performance.now() * 0.001 - armStartTime) / armDuration : 0;
+        
+        let armColor1, armColor2, armColor3;
+        if (armPhase < 0.3) {
+          // 蓄力阶段：深蓝→紫色
+          armColor1 = [40, 60, 120];   // 深蓝
+          armColor2 = [80, 40, 140];   // 深紫
+          armColor3 = [60, 80, 160];   // 蓝紫
+        } else if (armPhase < 0.8) {
+          // 上升阶段：紫色→金紫色
+          armColor1 = [80, 40, 140];   // 深紫
+          armColor2 = [140, 80, 160];  // 亮紫
+          armColor3 = [180, 120, 60];  // 金紫
+        } else {
+          // 爆发阶段：金黄色
+          armColor1 = [200, 160, 40];  // 金黄
+          armColor2 = [240, 200, 80];  // 亮金
+          armColor3 = [255, 220, 100]; // 最亮金
+        }
+        
+        // 从下往上的能量上升渐变
+        const energyPosition = Math.min(90, 20 + armPhase * 70);
+        
+        gradientString = `linear-gradient(to top,
+          rgb(${lerpColor(normalColors.ring3, armColor1, mixArm * 0.8).join(',')}) 0%,
+          rgb(${lerpColor(normalColors.ring2, armColor2, mixArm * 0.9).join(',')}) ${energyPosition - 20}%,
+          rgb(${lerpColor(normalColors.center, armColor3, mixArm).join(',')}) ${energyPosition}%,
+          rgb(${lerpColor(normalColors.center, armColor3, mixArm * 0.7).join(',')}) ${Math.min(100, energyPosition + 10)}%
+        )`;
+      } else if (mixSquat > 0) {
         // 下沉模式：使用浅蓝色
         const lightSinkBlue = [180, 220, 255];    // 很浅的蓝色
         const sinkBlue = [150, 200, 250];         // 浅蓝色
