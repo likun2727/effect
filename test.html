@@ -5,7 +5,8 @@
   <meta charset="UTF-8">
   <title>Liquid Cloud Particle Flow</title>
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -39,30 +40,26 @@
     const particleCount = 8000;
     let geometry, material;
     let bgPhase = 0;
+    let particleSquat = 0;
+    let bgSquat = 0;
     let isBursting = false;
+    let bgBurst = 0; // 0~1，0正常，1=最强变化
+    let innerMix = bgBurst;
+    let midMix = bgBurst * 0.5;
+    let outMix = bgBurst * 0.2;
     let burstStartTime = 0;
     const burstDuration = 1.2; // 秒
-
-    // 下蹲与爆发特效变量
-    let bgSquat = 0;         // 下蹲背景
-    let particleSquat = 0;   // 粒子整体下沉
-    let bgBurst = 0;         // 爆发背景
-
-    // 粒子波形参数
-    const phases = new Float32Array(particleCount);
-    const thetas = new Float32Array(particleCount);
-    const phis = new Float32Array(particleCount);
-
-    for (let i = 0; i < particleCount; i++) {
-      phases[i] = Math.random() * Math.PI * 2;
-      thetas[i] = Math.random() * 2 * Math.PI;
-      phis[i] = Math.acos(2 * Math.random() - 1);
-    }
-
     init();
     animate();
 
-    // 监听空格爆发，S为下蹲
+
+    // 监听键盘
+    window.addEventListener('keydown', function (e) {
+      // 空格键
+      if (e.code === 'Space' && !isBursting) {
+        triggerBurst()
+      }
+    });
     window.addEventListener('keydown', function (e) {
       if (e.code === 'Space' && !isBursting) {
         isBursting = true;
@@ -71,7 +68,7 @@
       }
       if (e.key === 's' || e.key === 'S') {
         bgSquat = 1.0;
-        particleSquat = 1.0;
+        particleSquat = 1.0;  // 粒子下沉启动
       }
     });
 
@@ -99,6 +96,8 @@
         positions[i * 3 + 2] = z;
 
         sizes[i] = 2.0 + Math.random() * 2.0;
+
+        // 蓝色粒子
         colors[i * 3] = 0.3 + Math.random() * 0.1;
         colors[i * 3 + 1] = 0.5 + Math.random() * 0.1;
         colors[i * 3 + 2] = 1.0;
@@ -113,10 +112,11 @@
         attribute vec3 aColor;
         varying vec3 vColor;
         varying float vAlpha;
+
         void main() {
           vColor = aColor;
           float dist = length(position);
-          vAlpha = 1.0 - smoothstep(0.0, 80.0, dist);
+          vAlpha = 1.0 - smoothstep(0.0, 520.0, dist);
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_PointSize = size * (300.0 / -mvPosition.z);
           gl_Position = projectionMatrix * mvPosition;
@@ -146,7 +146,7 @@
       scene.add(particleSystem);
 
       renderer = new THREE.WebGLRenderer({ alpha: true });
-      renderer.setClearColor(0x000000, 0);
+      renderer.setClearColor(0x000000, 0); // 透明背景
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
@@ -156,6 +156,59 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
     }
+
+    function triggerBurst() {
+      if (!isBursting) {
+        isBursting = true;
+        burstStartTime = performance.now() * 0.001;
+        bgBurst = 1.0;
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const positions = geometry.attributes.position.array;
+      const time = performance.now() * 0.001;
+
+      // 用爆发因子
+      let burstFactor = 1.0;
+      if (isBursting) {
+        const elapsed = time - burstStartTime;
+        if (elapsed < burstDuration) {
+          burstFactor = 1.0 + 2.5 * Math.max(0, 1 - elapsed / burstDuration);
+        } else {
+          isBursting = false;
+        }
+      }
+
+      for (let i = 0; i < particleCount; i++) {
+        let idx = i * 3;
+        let x = positions[idx];
+        let y = positions[idx + 1];
+        let z = positions[idx + 2];
+        let dist = Math.sqrt(x * x + y * y + z * z);
+        let speed = (0.03 + dist * 0.002) * burstFactor;
+        let dir = new THREE.Vector3(x, y, z).normalize();
+        positions[idx] += dir.x * speed;
+        positions[idx + 1] += dir.y * speed;
+        positions[idx + 2] += dir.z * speed;
+        if (dist > 600) {
+          let r = 1 + Math.random() * 2;
+          let theta = Math.random() * 2 * Math.PI;
+          let phi = Math.acos(2 * Math.random() - 1);
+          positions[idx] = r * Math.sin(phi) * Math.cos(theta);
+          positions[idx + 1] = r * Math.sin(phi) * Math.sin(theta);
+          positions[idx + 2] = r * Math.cos(phi);
+        }
+      }
+
+      geometry.attributes.position.needsUpdate = true;
+      particleSystem.rotation.y += 0.0002;
+      updateBackground();
+      renderer.render(scene, camera);
+    }
+
 
     function lerpColor(c1, c2, t) {
       return [
@@ -168,32 +221,37 @@
     function updateBackground() {
       bgPhase += 0.01;
 
-      // 爆发与下蹲的渐变衰减（可调节速度）
+      // 逐渐回落
       if (bgBurst > 0) {
-        bgBurst -= 0.02; // 快速恢复
+        bgBurst -= 0.003; // 恢复慢一些
         if (bgBurst < 0) bgBurst = 0;
       }
       if (bgSquat > 0) {
-        bgSquat -= 0.003; // 慢慢淡出
+        bgSquat -= 0.003; // 可以再慢点
         if (bgSquat < 0) bgSquat = 0;
       }
 
-      // 下蹲+爆发混合色系
+      // 预设主色
       const centerBase = [160, 210, 255];
       const ring1Base = [160, 210, 255];
       const ring2Base = [255, 179, 179];
       const ring3Base = [255, 247, 176];
+
+      // 空格爆发用
       const burstColor = [255, 255, 255];
 
-      // 下蹲深蓝色
-      const squatCenter = [90, 80, 255];
-      const squatRing1 = [70, 120, 220];
-      const squatRing2 = [30, 70, 150];
-      const squatRing3 = [25, 40, 80];
+      // 下蹲特效色：底部发光蓝紫，外圈冷色，中心更暗
+      const squatCenter = [90, 80, 255];    // 中心强烈蓝紫
+      const squatRing1 = [70, 120, 220];    // 靠近中心的深蓝
+      const squatRing2 = [30, 70, 150];     // 更远的深蓝青
+      const squatRing3 = [25, 40, 80];      // 最外圈近乎夜色
 
+      // ——中心色融合比例——
+      // 两特效可以同时叠加（极少出现，优先爆发色）
       let mixBurst = bgBurst;
-      let mixSquat = bgSquat * (1 - mixBurst);
+      let mixSquat = bgSquat * (1 - mixBurst); // 同时爆发时优先爆发
 
+      // 普通模式
       let center = lerpColor(centerBase, burstColor, mixBurst);
       center = lerpColor(center, squatCenter, mixSquat);
 
@@ -206,76 +264,23 @@
       let ring3 = lerpColor(ring3Base, burstColor, mixBurst * 0.18);
       ring3 = lerpColor(ring3, squatRing3, mixSquat * 0.15);
 
-      // 下蹲时中心移到底部
+      // 渐变中心，普通模式在中间，下蹲时往下偏移
       let baseY = 50 + Math.cos(bgPhase * 0.5) * 5;
-      let squatY = 90;
+      let squatY = 90; // 渐变中心移动到屏幕下方
       let centerY = baseY * (1 - mixSquat) + squatY * mixSquat;
-      let centerX = 50 + Math.sin(bgPhase * 0.7) * 5;
+      let centerX = 50 + Math.sin(bgPhase * 0.7) * 5; // 水平方向可略偏
 
       document.body.style.background =
         `radial-gradient(circle at ${centerX}% ${centerY}%, 
-          rgb(${center.join(',')}) 0%,
-          rgb(${ring1.join(',')}) 15%,
-          rgb(${ring2.join(',')}) 50%,
-          rgb(${ring3.join(',')}) 100%
-        )`;
+      rgb(${center.join(',')}) 0%,
+      rgb(${ring1.join(',')}) 15%,
+      rgb(${ring2.join(',')}) 50%,
+      rgb(${ring3.join(',')}) 100%
+    )`;
     }
 
-    function animate() {
-      requestAnimationFrame(animate);
 
-      const positions = geometry.attributes.position.array;
-      const time = performance.now() * 0.001;
-
-      // 下蹲粒子下沉衰减
-      if (particleSquat > 0) {
-        particleSquat -= 0.003;
-        if (particleSquat < 0) particleSquat = 0;
-      }
-
-      // 粒子主循环
-      let squatOffset = 60 * Math.pow(particleSquat, 0.95); // 可调整沉降强度
-      let burstFactor = 1.0;
-      if (isBursting) {
-        const elapsed = time - burstStartTime;
-        if (elapsed < burstDuration) {
-          burstFactor = 1.0 + 2.5 * Math.max(0, 1 - elapsed / burstDuration);
-        } else {
-          isBursting = false;
-        }
-      }
-
-      for (let i = 0; i < particleCount; i++) {
-        // 波动周期
-        let cycle = 5.0;
-        let t = (time * 0.3 + phases[i]) % cycle;
-        let waveProgress = t / cycle;
-        let r = 10 + waveProgress * 110;
-        let theta = thetas[i];
-        let phi = phis[i];
-
-        let x = r * Math.sin(phi) * Math.cos(theta);
-        let y = r * Math.sin(phi) * Math.sin(theta);
-        let z = r * Math.cos(phi);
-
-        // 下蹲整体下沉
-        y += squatOffset;
-
-        // 爆发时快速扩散
-        x *= burstFactor;
-        y *= burstFactor;
-        z *= burstFactor;
-
-        positions[i * 3] = x;
-        positions[i * 3 + 1] = y;
-        positions[i * 3 + 2] = z;
-      }
-
-      geometry.attributes.position.needsUpdate = true;
-      particleSystem.rotation.y += 0.0002;
-      updateBackground();
-      renderer.render(scene, camera);
-    }
   </script>
 </body>
+
 </html>
