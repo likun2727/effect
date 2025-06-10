@@ -1,4 +1,4 @@
-let camera = null;
+let my_camera = null;
 let pose = null;
 let isRunning = false;
 let availableCameras = [];
@@ -127,12 +127,12 @@ function onCameraSelectChange() {
 async function restartCamera() {
     try {
         console.log('重新启动摄像头...');
-        if (camera) {
-            camera.stop();
+        if (my_camera) {
+            my_camera.stop();
         }
         await initializeCamera();
         if (isRunning) {
-            await camera.start();
+            await my_camera.start();
         }
         console.log('摄像头重启成功');
     } catch (error) {
@@ -870,7 +870,7 @@ function initializeCamera() {
             cameraConfig.deviceId = selectedCameraId;
         }
         
-        camera = new Camera(videoElement, cameraConfig);
+        my_camera = new Camera(videoElement, cameraConfig);
         console.log('Camera initialized successfully with device:', selectedCameraId || 'default');
     } catch (error) {
         console.error('Error initializing camera:', error);
@@ -889,7 +889,7 @@ async function startDetection() {
             
             console.log('Starting detection...');
             isRunning = true;
-            await camera.start();
+            await my_camera.start();
             startBtn.disabled = true;
             startBtn.classList.remove('active');
             stopBtn.disabled = false;
@@ -944,7 +944,7 @@ function stopDetection() {
         if (isRunning) {
             console.log('Stopping detection...');
             isRunning = false;
-            camera.stop();
+            my_camera.stop();
             startBtn.disabled = false;
             startBtn.classList.remove('active');
             stopBtn.disabled = true;

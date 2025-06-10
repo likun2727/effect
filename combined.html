@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="utf-8">
     <title>粒子效果与人体识别整合页面（带3D噪声）</title>
     <style>
-        body, html {
+        body,
+        html {
             margin: 0;
             padding: 0;
             width: 100%;
@@ -12,25 +14,25 @@
             overflow: hidden;
             font-family: 'Microsoft YaHei', Arial, sans-serif;
         }
-        
+
         .main-container {
             width: 100%;
             height: 100vh;
             display: flex;
             background-color: #000;
         }
-        
+
         /* 粒子效果区域 */
         .particle-section {
             width: 100%;
             height: 100%;
             position: relative;
         }
-        
+
         .particle-title {
             display: none;
         }
-        
+
         #particleCanvas {
             width: 100%;
             height: 100%;
@@ -39,7 +41,7 @@
             top: 0;
             left: 0;
         }
-        
+
         /* 人体识别区域 */
         .pose-section {
             position: fixed;
@@ -50,15 +52,15 @@
             z-index: 100;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
             border: 2px solid rgba(255, 255, 255, 0.3);
             background-color: #000;
         }
-        
+
         .pose-title {
             display: none;
         }
-        
+
         .pose-mini-title {
             position: absolute;
             top: 8px;
@@ -69,12 +71,12 @@
             border-radius: 4px;
             font-size: 12px;
             font-weight: bold;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(5px);
             border: 1px solid rgba(255, 255, 255, 0.2);
             z-index: 10;
         }
-        
+
         .pose-canvas-container {
             width: 100%;
             height: 100%;
@@ -82,14 +84,14 @@
             background-color: #000;
             border-radius: 12px;
         }
-        
+
         #output_canvas {
             width: 100%;
             height: 100%;
             display: block;
             border-radius: 12px;
         }
-        
+
         /* 控制面板 */
         .controls {
             position: fixed;
@@ -102,32 +104,32 @@
             backdrop-filter: blur(10px);
             padding: 15px 25px;
             border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             display: flex;
             gap: 15px;
             align-items: center;
         }
-        
+
         .controls h3 {
             margin: 0;
             color: rgba(255, 255, 255, 0.9);
             font-size: 16px;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
-        
+
         .camera-selector {
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        
+
         .camera-selector label {
             color: rgba(255, 255, 255, 0.9);
             font-size: 14px;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
             white-space: nowrap;
         }
-        
+
         .camera-selector select {
             padding: 8px 12px;
             font-size: 14px;
@@ -137,36 +139,36 @@
             border-radius: 6px;
             backdrop-filter: blur(10px);
             transition: all 0.3s;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
             min-width: 200px;
             cursor: pointer;
         }
-        
+
         .camera-selector select:hover {
             background-color: rgba(255, 255, 255, 0.2);
             border-color: rgba(255, 255, 255, 0.5);
         }
-        
+
         .camera-selector select:focus {
             outline: none;
             background-color: rgba(255, 255, 255, 0.2);
             border-color: rgba(255, 255, 255, 0.6);
             box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
         }
-        
+
         .camera-selector select option {
             background-color: #333;
             color: #fff;
             padding: 8px;
         }
-        
+
         .camera-selector select:disabled {
             background-color: rgba(255, 255, 255, 0.05);
             color: rgba(255, 255, 255, 0.4);
             border-color: rgba(255, 255, 255, 0.1);
             cursor: not-allowed;
         }
-        
+
         button {
             padding: 10px 20px;
             font-size: 14px;
@@ -177,15 +179,15 @@
             cursor: pointer;
             backdrop-filter: blur(10px);
             transition: all 0.3s;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
-        
+
         button:hover {
             background-color: rgba(255, 255, 255, 0.2);
             border-color: rgba(255, 255, 255, 0.5);
             transform: translateY(-1px);
         }
-        
+
         button:disabled {
             background-color: rgba(255, 255, 255, 0.05);
             color: rgba(255, 255, 255, 0.4);
@@ -193,7 +195,7 @@
             cursor: not-allowed;
             transform: none;
         }
-        
+
         /* 开启状态的按钮样式 */
         button.active {
             background-color: rgba(255, 255, 255, 0.3);
@@ -201,7 +203,7 @@
             color: rgba(255, 255, 255, 1);
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
         }
-        
+
         /* 截屏按钮特殊样式 */
         #screenshotBtn.active {
             background-color: rgba(255, 255, 255, 0.3);
@@ -209,7 +211,7 @@
             color: rgba(255, 255, 255, 1);
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
         }
-        
+
         /* 动作识别控制面板 */
         .action-controls {
             position: fixed;
@@ -221,12 +223,12 @@
             backdrop-filter: blur(10px);
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             min-width: 200px;
             max-height: calc(100vh - 300px);
             overflow-y: auto;
         }
-        
+
         .action-controls h3 {
             margin: 0 0 15px 0;
             color: rgba(255, 255, 255, 0.9);
@@ -234,9 +236,9 @@
             text-align: center;
             border-bottom: 1px solid rgba(255, 255, 255, 0.3);
             padding-bottom: 10px;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
-        
+
         .action-item {
             margin-bottom: 15px;
             padding: 10px;
@@ -244,14 +246,14 @@
             border-radius: 5px;
             background-color: rgba(255, 255, 255, 0.05);
         }
-        
+
         .action-item h4 {
             margin: 0 0 8px 0;
             font-size: 14px;
             color: rgba(255, 255, 255, 0.8);
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
-        
+
         .action-toggle {
             width: 100%;
             padding: 8px 16px;
@@ -262,9 +264,9 @@
             transition: all 0.3s;
             margin-bottom: 5px;
             backdrop-filter: blur(10px);
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
-        
+
         .action-toggle.enabled {
             background-color: rgba(255, 255, 255, 0.3);
             color: rgba(255, 255, 255, 1);
@@ -272,23 +274,21 @@
             backdrop-filter: blur(10px);
             box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
         }
-        
+
         .action-toggle.disabled {
             background-color: rgba(255, 255, 255, 0.1);
             color: rgba(255, 255, 255, 0.6);
             border: 2px solid rgba(255, 255, 255, 0.3);
             backdrop-filter: blur(10px);
         }
-        
+
         .action-counter {
             font-size: 12px;
             color: rgba(255, 255, 255, 0.7);
             text-align: center;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
-        
 
-        
         /* 状态显示 */
         #status {
             position: fixed;
@@ -302,23 +302,23 @@
             max-width: 80%;
             text-align: center;
             backdrop-filter: blur(10px);
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
-        
+
         #status.error {
             display: block;
             background-color: rgba(255, 255, 255, 0.1);
             border: 2px solid rgba(255, 100, 100, 0.8);
             color: rgba(255, 200, 200, 0.9);
         }
-        
+
         #status.success {
             display: block;
             background-color: rgba(255, 255, 255, 0.1);
             border: 2px solid rgba(100, 255, 100, 0.8);
             color: rgba(200, 255, 200, 0.9);
         }
-        
+
         /* 手动控制提示 */
         .manual-controls {
             position: fixed;
@@ -332,22 +332,22 @@
             border-radius: 8px;
             color: rgba(255, 255, 255, 0.9);
             font-size: 12px;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
-        
+
         .manual-controls h4 {
             margin: 0 0 10px 0;
             font-size: 14px;
             color: rgba(255, 255, 255, 1);
         }
-        
+
         .control-hint {
             margin: 5px 0;
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        
+
         .key {
             background-color: rgba(255, 255, 255, 0.2);
             padding: 2px 8px;
@@ -358,6 +358,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="main-container">
         <!-- 粒子效果区域 -->
@@ -365,7 +366,7 @@
             <div class="particle-title">粒子效果展示</div>
             <canvas id="particleCanvas"></canvas>
         </div>
-        
+
         <!-- 人体识别区域 -->
         <div class="pose-section">
             <div class="pose-canvas-container">
@@ -374,7 +375,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 主控制面板 -->
     <div class="controls">
         <h3>控制面板</h3>
@@ -389,13 +390,11 @@
         <button id="screenshotBtn" disabled>手动截屏</button>
         <button id="galleryBtn">查看截图</button>
     </div>
-    
 
-    
     <!-- 动作识别控制面板 -->
     <div class="action-controls">
         <h3>动作识别设置</h3>
-        
+
         <div class="action-item">
             <h4>下蹲识别 → 粒子下沉</h4>
             <button id="squatToggleBtn" class="action-toggle disabled">启动下蹲识别</button>
@@ -404,32 +403,32 @@
                 冷却中: <span id="cooldownTime">5</span>秒
             </div>
         </div>
-        
+
         <div class="action-item">
             <h4>屈肘抬臂识别 → 粒子抬臂</h4>
             <button id="armToggleBtn" class="action-toggle disabled">启动屈肘抬臂识别</button>
             <div class="action-counter">次数: <span id="armCount">0</span></div>
         </div>
-        
+
         <div class="action-item">
             <h4>爆发动作识别 → 粒子爆发</h4>
             <button id="stretchToggleBtn" class="action-toggle disabled">启动爆发动作识别</button>
             <div class="action-counter">次数: <span id="stretchCount">0</span></div>
         </div>
-        
+
         <div class="action-item" style="border-color: #2196F3;">
             <h4>智能截屏功能</h4>
             <div class="action-counter" style="color: #2196F3;">
                 已截屏: <span id="screenshotCountDisplay">0</span> 张
             </div>
             <div class="action-counter" style="font-size: 11px; color: rgba(255, 255, 255, 0.6); margin-top: 5px;">
-                • 开始识别时自动截屏<br/>
-                • 检测到动作时自动截屏<br/>
+                • 开始识别时自动截屏<br />
+                • 检测到动作时自动截屏<br />
                 • 可手动点击截屏按钮
             </div>
         </div>
     </div>
-    
+
     <!-- 手动控制提示 -->
     <div class="manual-controls">
         <h4>手动控制</h4>
@@ -450,22 +449,24 @@
             <span>切换噪声开关</span>
         </div>
     </div>
-    
+
     <!-- 状态显示 -->
     <div id="status"></div>
 
     <!-- Three.js 库 -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-    
+
     <!-- 人体识别相关脚本 -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+        crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-    
+
     <!-- 错误处理 -->
     <script>
-        window.addEventListener('error', function(e) {
+        window.addEventListener('error', function (e) {
             if (e.target.tagName === 'SCRIPT') {
                 const status = document.getElementById('status');
                 status.textContent = '加载必要组件失败，请检查网络连接并刷新页面重试。';
@@ -473,7 +474,7 @@
             }
         }, true);
     </script>
-    
+
     <!-- 3D噪声函数库 -->
     <script>
         // 简化的3D Perlin噪声实现
@@ -481,41 +482,41 @@
             constructor() {
                 this.permutation = [];
                 this.p = [];
-                
+
                 // 初始化排列表
                 for (let i = 0; i < 256; i++) {
                     this.permutation[i] = i;
                 }
-                
+
                 // 打乱排列
                 for (let i = 255; i >= 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [this.permutation[i], this.permutation[j]] = [this.permutation[j], this.permutation[i]];
                 }
-                
+
                 // 扩展到512
                 for (let i = 0; i < 512; i++) {
                     this.p[i] = this.permutation[i % 256];
                 }
             }
-            
+
             // 3D噪声函数
             noise(x, y, z) {
                 // 找到单位立方体的坐标
                 const X = Math.floor(x) & 255;
                 const Y = Math.floor(y) & 255;
                 const Z = Math.floor(z) & 255;
-                
+
                 // 找到相对坐标
                 x -= Math.floor(x);
                 y -= Math.floor(y);
                 z -= Math.floor(z);
-                
+
                 // 计算淡入淡出曲线
                 const u = this.fade(x);
                 const v = this.fade(y);
                 const w = this.fade(z);
-                
+
                 // 计算散列坐标
                 const A = this.p[X] + Y;
                 const AA = this.p[A] + Z;
@@ -523,58 +524,58 @@
                 const B = this.p[X + 1] + Y;
                 const BA = this.p[B] + Z;
                 const BB = this.p[B + 1] + Z;
-                
+
                 // 返回插值结果
                 return this.lerp(w,
                     this.lerp(v,
                         this.lerp(u, this.grad(this.p[AA], x, y, z),
-                                    this.grad(this.p[BA], x - 1, y, z)),
+                            this.grad(this.p[BA], x - 1, y, z)),
                         this.lerp(u, this.grad(this.p[AB], x, y - 1, z),
-                                    this.grad(this.p[BB], x - 1, y - 1, z))),
+                            this.grad(this.p[BB], x - 1, y - 1, z))),
                     this.lerp(v,
                         this.lerp(u, this.grad(this.p[AA + 1], x, y, z - 1),
-                                    this.grad(this.p[BA + 1], x - 1, y, z - 1)),
+                            this.grad(this.p[BA + 1], x - 1, y, z - 1)),
                         this.lerp(u, this.grad(this.p[AB + 1], x, y - 1, z - 1),
-                                    this.grad(this.p[BB + 1], x - 1, y - 1, z - 1))));
+                            this.grad(this.p[BB + 1], x - 1, y - 1, z - 1))));
             }
-            
+
             fade(t) {
                 return t * t * t * (t * (t * 6 - 15) + 10);
             }
-            
+
             lerp(t, a, b) {
                 return a + t * (b - a);
             }
-            
+
             grad(hash, x, y, z) {
                 const h = hash & 15;
                 const u = h < 8 ? x : y;
                 const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
                 return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
             }
-            
+
             // 分形噪声（多层噪声）
             fractalNoise(x, y, z, octaves = 4, persistence = 0.5) {
                 let total = 0;
                 let frequency = 1;
                 let amplitude = 1;
                 let maxValue = 0;
-                
+
                 for (let i = 0; i < octaves; i++) {
                     total += this.noise(x * frequency, y * frequency, z * frequency) * amplitude;
                     maxValue += amplitude;
                     amplitude *= persistence;
                     frequency *= 2;
                 }
-                
+
                 return total / maxValue;
             }
         }
-        
+
         // 全局噪声实例
         const noise3D = new Noise3D();
     </script>
-    
+
     <!-- 粒子效果脚本 -->
     <script>
         let scene, camera, renderer, particleSystem;
@@ -591,7 +592,7 @@
         let armStartTime = 0;
         const burstDuration = 1.0;
         const armDuration = 1.8;
-        
+
         // 3D噪声参数
         let noiseEnabled = true;
         let noiseStrength = 0.8;
@@ -599,7 +600,7 @@
         let noiseSpeed = 1.0;
         let colorNoiseStrength = 0.3;
         let sizeNoiseStrength = 0.5;
-        
+
         // 记录每个粒子的运动模式和创建时间
         let particleStates = new Array(particleCount).fill().map(() => ({
             mode: 'normal', // 'normal', 'falling', 'arming', 'rising', 'arm_bursting'
@@ -618,13 +619,18 @@
             },
             originalSize: 2.0 + Math.random() * 2.0 // 存储原始大小
         }));
-        
+
         // 全局函数，供人体识别调用
         window.triggerParticleExplosion = () => {
             if (!isBursting) {
                 console.log('触发粒子爆发效果');
                 triggerBurst();
             }
+        };
+
+        window.triggerSquatMode = () => {
+            console.log('触发下蹲粒子下沉效果');
+            triggerSquat();
         };
 
         window.triggerArmSplit = () => {
@@ -639,7 +645,7 @@
             console.log('触发伸展效果');
             triggerBurst(); // 暂时使用爆发效果
         };
-        
+
         init();
         animate();
 
@@ -650,14 +656,7 @@
                 triggerBurst()
             }
             if (e.key === 's' || e.key === 'S') {
-                bgSquat = 1.0;
-                particleSquat = 1.0;
-                // 将当前所有粒子标记为下落模式，但不改变它们的位置
-                const currentTime = performance.now() * 0.001;
-                for (let i = 0; i < particleCount; i++) {
-                    particleStates[i].mode = 'falling';
-                    particleStates[i].createdAt = currentTime;
-                }
+                triggerSquat();
             }
             if (e.key === 'b' || e.key === 'B') {
                 if (!isArming) {
@@ -705,7 +704,7 @@
                 colors[i * 3] = originalColor.r;
                 colors[i * 3 + 1] = originalColor.g;
                 colors[i * 3 + 2] = originalColor.b;
-                
+
                 // 初始化粒子状态
                 particleStates[i] = {
                     mode: 'normal',
@@ -786,17 +785,29 @@
             }
         }
 
+        function triggerSquat() {
+            console.log('执行下蹲粒子下沉效果');
+            bgSquat = 1.0;
+            particleSquat = 1.0;
+            // 将当前所有粒子标记为下落模式，但不改变它们的位置
+            const currentTime = performance.now() * 0.001;
+            for (let i = 0; i < particleCount; i++) {
+                particleStates[i].mode = 'falling';
+                particleStates[i].createdAt = currentTime;
+            }
+        }
+
         function triggerArm() {
             if (!isArming) {
                 isArming = true;
                 armStartTime = performance.now() * 0.001;
                 bgArm = 1.0;
-                
+
                 // 设置聚集目标点（模拟肘部位置，在右下方）
                 const elbowX = 40;
                 const elbowY = -20;
                 const elbowZ = 0;
-                
+
                 const currentTime = performance.now() * 0.001;
                 for (let i = 0; i < particleCount; i++) {
                     particleStates[i].mode = 'arming';
@@ -850,33 +861,33 @@
                 let y = positions[idx + 1];
                 let z = positions[idx + 2];
                 let dist = Math.sqrt(x * x + y * y + z * z);
-                
+
                 // 3D噪声计算
                 let noiseX = 0, noiseY = 0, noiseZ = 0;
                 if (noiseEnabled) {
                     const noiseTime = time * noiseSpeed;
                     const particleState = particleStates[i];
-                    
+
                     // 计算噪声位置
                     const noiseInputX = (x + particleState.noiseOffset.x) * noiseFrequency;
                     const noiseInputY = (y + particleState.noiseOffset.y) * noiseFrequency;
                     const noiseInputZ = (z + particleState.noiseOffset.z) * noiseFrequency;
-                    
+
                     // 获取3D噪声值
                     noiseX = noise3D.fractalNoise(noiseInputX, noiseInputY, noiseInputZ + noiseTime) * noiseStrength;
                     noiseY = noise3D.fractalNoise(noiseInputX + 100, noiseInputY, noiseInputZ + noiseTime) * noiseStrength;
                     noiseZ = noise3D.fractalNoise(noiseInputX, noiseInputY + 100, noiseInputZ + noiseTime) * noiseStrength;
-                    
+
                     // 颜色噪声
                     if (colorNoiseStrength > 0) {
                         const colorNoise = noise3D.noise(noiseInputX * 2, noiseInputY * 2, noiseInputZ * 2 + noiseTime * 0.5);
                         const colorVariation = colorNoise * colorNoiseStrength;
-                        
+
                         colors[idx] = Math.max(0, Math.min(1, particleState.originalColor.r + colorVariation));
                         colors[idx + 1] = Math.max(0, Math.min(1, particleState.originalColor.g + colorVariation * 0.5));
                         colors[idx + 2] = Math.max(0, Math.min(1, particleState.originalColor.b + colorVariation * 0.3));
                     }
-                    
+
                     // 大小噪声
                     if (sizeNoiseStrength > 0) {
                         const sizeNoise = noise3D.noise(noiseInputX * 3, noiseInputY * 3, noiseInputZ * 3 + noiseTime * 0.3);
@@ -884,7 +895,7 @@
                         sizes[i] = Math.max(0.5, particleState.originalSize * sizeVariation);
                     }
                 }
-                
+
                 // 根据粒子状态决定运动方式
                 if (particleStates[i].mode === 'falling') {
                     // 下落粒子：向下移动
@@ -892,7 +903,7 @@
                     positions[idx] += noiseX;
                     positions[idx + 1] -= fallSpeed + noiseY;
                     positions[idx + 2] += noiseZ;
-                    
+
                     // 如果粒子落到底部，重新在中心生成并改为正常模式
                     if (y < -120) {
                         let r = 1 + Math.random() * 5; // 在中心小范围内生成
@@ -912,7 +923,7 @@
                         let progress = armPhase / 0.3;
                         let target = particleStates[i].armTarget;
                         let lerpSpeed = 0.08 * progress;
-                        
+
                         positions[idx] += (target.x - x) * lerpSpeed + noiseX * 0.5;
                         positions[idx + 1] += (target.y - y) * lerpSpeed + noiseY * 0.5;
                         positions[idx + 2] += (target.z - z) * lerpSpeed + noiseZ * 0.5;
@@ -921,11 +932,11 @@
                         let progress = (armPhase - 0.3) / 0.5;
                         let spiralRadius = 15 * (1 - progress * 0.5);
                         let spiralSpeed = 2.0;
-                        
+
                         particleStates[i].spiralPhase += 0.15;
                         let spiralX = Math.cos(particleStates[i].spiralPhase) * spiralRadius;
                         let spiralZ = Math.sin(particleStates[i].spiralPhase) * spiralRadius;
-                        
+
                         positions[idx] = particleStates[i].armTarget.x + spiralX + noiseX;
                         positions[idx + 1] += spiralSpeed + noiseY;
                         positions[idx + 2] = particleStates[i].armTarget.z + spiralZ + noiseZ;
@@ -934,7 +945,7 @@
                         let progress = (armPhase - 0.8) / 0.2;
                         let explosionSpeed = 3.0 * progress;
                         let dir = new THREE.Vector3(x - particleStates[i].armTarget.x, y - particleStates[i].armTarget.y, z - particleStates[i].armTarget.z).normalize();
-                        
+
                         positions[idx] += dir.x * explosionSpeed + noiseX;
                         positions[idx + 1] += dir.y * explosionSpeed + 1.0 + noiseY; // 向上偏移
                         positions[idx + 2] += dir.z * explosionSpeed + noiseZ;
@@ -943,11 +954,11 @@
                     // 正常粒子：向外扩散
                     let speed = (0.06 + dist * 0.004) * burstFactor;
                     let dir = new THREE.Vector3(x, y, z).normalize();
-                    
+
                     positions[idx] += dir.x * speed + noiseX;
                     positions[idx + 1] += dir.y * speed + noiseY;
                     positions[idx + 2] += dir.z * speed + noiseZ;
-                    
+
                     // 如果粒子移动太远，重新在中心生成
                     if (dist > 600) {
                         let r = 1 + Math.random() * 5; // 在中心小范围内生成
@@ -967,48 +978,6 @@
             particleSystem.rotation.y += 0.0002;
             updateBackground();
             renderer.render(scene, camera);
-        }
-
-        function initNoiseControls() {
-            // 噪声强度控制
-            const noiseStrengthSlider = document.getElementById('noiseStrength');
-            const noiseStrengthValue = document.getElementById('noiseStrengthValue');
-            noiseStrengthSlider.addEventListener('input', (e) => {
-                noiseStrength = parseFloat(e.target.value);
-                noiseStrengthValue.textContent = noiseStrength.toFixed(1);
-            });
-
-            // 噪声频率控制
-            const noiseFrequencySlider = document.getElementById('noiseFrequency');
-            const noiseFrequencyValue = document.getElementById('noiseFrequencyValue');
-            noiseFrequencySlider.addEventListener('input', (e) => {
-                noiseFrequency = parseFloat(e.target.value);
-                noiseFrequencyValue.textContent = noiseFrequency.toFixed(3);
-            });
-
-            // 噪声速度控制
-            const noiseSpeedSlider = document.getElementById('noiseSpeed');
-            const noiseSpeedValue = document.getElementById('noiseSpeedValue');
-            noiseSpeedSlider.addEventListener('input', (e) => {
-                noiseSpeed = parseFloat(e.target.value);
-                noiseSpeedValue.textContent = noiseSpeed.toFixed(1);
-            });
-
-            // 颜色噪声控制
-            const colorNoiseSlider = document.getElementById('colorNoise');
-            const colorNoiseValue = document.getElementById('colorNoiseValue');
-            colorNoiseSlider.addEventListener('input', (e) => {
-                colorNoiseStrength = parseFloat(e.target.value);
-                colorNoiseValue.textContent = colorNoiseStrength.toFixed(1);
-            });
-
-            // 大小噪声控制
-            const sizeNoiseSlider = document.getElementById('sizeNoise');
-            const sizeNoiseValue = document.getElementById('sizeNoiseValue');
-            sizeNoiseSlider.addEventListener('input', (e) => {
-                sizeNoiseStrength = parseFloat(e.target.value);
-                sizeNoiseValue.textContent = sizeNoiseStrength.toFixed(1);
-            });
         }
 
         function lerpColor(c1, c2, t) {
@@ -1036,14 +1005,14 @@
                         break;
                     }
                 }
-                
+
                 // 加快S键背景变化速度
                 if (hasFallingParticles) {
                     bgSquat -= 0.01; // 从0.0005提高到0.002，快4倍
                 } else {
                     bgSquat -= 0.1; // 从0.01提高到0.015，快50%
                 }
-                
+
                 if (bgSquat < 0) bgSquat = 0;
             }
             if (bgArm > 0) {
@@ -1062,7 +1031,7 @@
             // 预设主色
             const normalColors = {
                 center: [160, 210, 255],
-                ring1: [160, 210, 255], 
+                ring1: [160, 210, 255],
                 ring2: [255, 179, 179],
                 ring3: [255, 247, 176]
             };
@@ -1075,7 +1044,7 @@
             if (mixArm > 0) {
                 // 抬臂模式：从深蓝→紫色→金黄色的渐变上升
                 const armPhase = isArming ? (performance.now() * 0.001 - armStartTime) / armDuration : 0;
-                
+
                 let armColor1, armColor2, armColor3;
                 if (armPhase < 0.3) {
                     // 蓄力阶段：深蓝→紫色
@@ -1093,10 +1062,10 @@
                     armColor2 = [240, 200, 80];  // 亮金
                     armColor3 = [255, 220, 100]; // 最亮金
                 }
-                
+
                 // 从下往上的能量上升渐变
                 const energyPosition = Math.min(90, 20 + armPhase * 70);
-                
+
                 gradientString = `linear-gradient(to top,
                     rgb(${lerpColor(normalColors.ring3, armColor1, mixArm * 0.8).join(',')}) 0%,
                     rgb(${lerpColor(normalColors.ring2, armColor2, mixArm * 0.9).join(',')}) ${energyPosition - 20}%,
@@ -1109,11 +1078,11 @@
                 const sinkBlue = [140, 200, 250];         // 浅蓝色
                 const sinkPink = [240, 150, 150];         // 稍微深一点的粉色
                 const sinkYellow = [240, 220, 140];       // 稍微深一点的黄色
-                
+
                 // 蓝色区域的边界
                 let blueTop = 50 - (5 * mixSquat);
                 let blueBottom = 50 + (50 * (1 - mixSquat));
-                
+
                 // 创建渐变 - 使用更平滑的过渡
                 gradientString = `linear-gradient(to bottom,
                     rgb(${lerpColor(normalColors.center, lightSinkBlue, mixSquat * 0.3).join(',')}) 0%,
@@ -1129,7 +1098,7 @@
                 let ring1 = normalColors.ring1;
                 let ring2 = normalColors.ring2;
                 let ring3 = normalColors.ring3;
-                
+
                 // 爆发效果覆盖
                 if (mixBurst > 0) {
                     center = lerpColor(center, burstColor, mixBurst);
@@ -1137,11 +1106,11 @@
                     ring2 = lerpColor(ring2, burstColor, mixBurst * 0.4);
                     ring3 = lerpColor(ring3, burstColor, mixBurst * 0.18);
                 }
-                
+
                 const ring1Pos = 15;
                 const ring2Pos = 50;
                 const ring3Pos = 100;
-                
+
                 gradientString = `radial-gradient(circle at ${centerX}% ${centerY}%, 
                     rgb(${center.join(',')}) 0%,
                     rgb(${ring1.join(',')}) ${ring1Pos}%,
@@ -1157,73 +1126,959 @@
             }
         }
     </script>
-    
-    <!-- 人体识别脚本占位符 - 这里需要添加你的人体识别JavaScript代码 -->
+
+    <!-- 人体识别脚本 -->
     <script>
-        // 人体识别相关的JavaScript代码会放在这里
-        // 暂时添加一些基础的UI交互功能
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            // 基础的按钮交互
-            const startBtn = document.getElementById('startBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            const screenshotBtn = document.getElementById('screenshotBtn');
+        let poseCamera = null;
+        let pose = null;
+        let isRunning = false;
+        let availableCameras = [];
+        let selectedCameraId = null;
+
+        // 获取DOM元素
+        const videoElement = document.createElement('video');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const screenshotBtn = document.getElementById('screenshotBtn');
+        const galleryBtn = document.getElementById('galleryBtn');
+        const cameraSelect = document.getElementById('cameraSelect');
+
+        // 定义动作阈值和状态
+        const SQUAT_THRESHOLD = 0.3; // 下蹲阈值
+        const JUMP_THRESHOLD = 0.1;  // 跳跃阈值
+        let lastY = 0;              // 记录上一帧的Y位置
+        let isSquatting = false;    // 下蹲状态
+        let isJumping = false;      // 跳跃状态
+        let squatCount = 0;         // 下蹲次数
+        let jumpCount = 0;          // 跳跃次数
+
+        // 下蹲识别控制
+        let isSquatDetectionEnabled = false; // 下蹲识别是否启用
+        const squatToggleBtn = document.getElementById('squatToggleBtn');
+        const squatCountDisplay = document.getElementById('squatCount');
+
+        // 屈肘抬臂识别控制
+        let isArmDetectionEnabled = false; // 屈肘抬臂识别是否启用
+        let armCount = 0; // 屈肘抬臂次数
+        let lastElbowY = { left: 0, right: 0, avg: undefined }; // 记录上一帧手肘Y位置
+        let armMovementState = 'none'; // 手臂运动状态：'none', 'rising', 'falling'
+        let armCycleStarted = false; // 是否开始了一个完整的屈肘抬臂周期
+        const ARM_MOVEMENT_THRESHOLD = 0.05; // 手臂运动阈值
+        const armToggleBtn = document.getElementById('armToggleBtn');
+        const armCountDisplay = document.getElementById('armCount');
+
+        // 屈臂触发粒子效果的状态
+        let armSplitCooldownActive = false;
+        let armSplitCooldownTimeout = null;
+        const ARM_SPLIT_COOLDOWN_TIME = 4000; // 4秒冷却时间
+
+        // 伸展运动识别控制
+        let isStretchDetectionEnabled = false; // 伸展运动识别是否启用
+        let stretchCount = 0; // 伸展运动次数
+        let stretchMovementState = 'none'; // 伸展运动状态：'none', 'right_on_chest', 'left_on_chest'
+        const stretchToggleBtn = document.getElementById('stretchToggleBtn');
+        const stretchCountDisplay = document.getElementById('stretchCount');
+
+        // 伸展触发粒子效果的状态
+        let stretchCooldownActive = false;
+        let stretchCooldownTimeout = null;
+        const STRETCH_COOLDOWN_TIME = 5000; // 5秒冷却时间
+
+        // 截屏计数显示
+        const screenshotCountDisplay = document.getElementById('screenshotCountDisplay');
+
+        // 下蹲触发粒子效果的状态
+        let squatTriggerTimeout = null;
+        let countdownInterval = null;
+        let squatCooldownActive = false;
+        let squatCooldownTimeout = null;
+        let cooldownDisplayInterval = null;
+        const SQUAT_COOLDOWN_TIME = 5000; // 5秒冷却时间
+
+        // 截屏功能相关
+        let screenshotCount = 0;
+        let hasStartScreenshot = false; // 是否已经拍摄了开始截图
+        let startScreenshotData = null; // 开始识别时的截图数据
+        let actionScreenshots = []; // 动作截图数据数组
+
+        // 获取可用摄像头列表
+        async function getCameraList() {
+            try {
+                // 首先请求摄像头权限
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                // 立即停止流，我们只是为了获取权限
+                stream.getTracks().forEach(track => track.stop());
+                
+                // 获取设备列表
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                availableCameras = devices.filter(device => device.kind === 'videoinput');
+                
+                // 更新下拉框
+                updateCameraSelect();
+                
+                console.log('找到摄像头:', availableCameras.length, '个');
+                return availableCameras;
+            } catch (error) {
+                console.error('获取摄像头列表失败:', error);
+                cameraSelect.innerHTML = '<option value="">无法访问摄像头</option>';
+                return [];
+            }
+        }
+
+        // 更新摄像头选择下拉框
+        function updateCameraSelect() {
+            cameraSelect.innerHTML = '';
             
-            startBtn.addEventListener('click', function() {
-                console.log('开始识别');
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-                screenshotBtn.disabled = false;
+            if (availableCameras.length === 0) {
+                cameraSelect.innerHTML = '<option value="">未找到摄像头</option>';
+                return;
+            }
+            
+            // 添加默认选项
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '选择摄像头...';
+            cameraSelect.appendChild(defaultOption);
+            
+            // 添加每个摄像头选项
+            availableCameras.forEach((camera, index) => {
+                const option = document.createElement('option');
+                option.value = camera.deviceId;
+                option.textContent = camera.label || `摄像头 ${index + 1}`;
+                cameraSelect.appendChild(option);
             });
             
-            stopBtn.addEventListener('click', function() {
-                console.log('停止识别');
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-                screenshotBtn.disabled = true;
-            });
+            // 如果只有一个摄像头，自动选择
+            if (availableCameras.length === 1) {
+                selectedCameraId = availableCameras[0].deviceId;
+                cameraSelect.value = selectedCameraId;
+            }
+        }
+
+        // 摄像头选择变化处理
+        function onCameraSelectChange() {
+            selectedCameraId = cameraSelect.value;
+            console.log('选择摄像头:', selectedCameraId);
             
-            // 动作识别按钮
-            const squatToggleBtn = document.getElementById('squatToggleBtn');
-            const armToggleBtn = document.getElementById('armToggleBtn');
-            const stretchToggleBtn = document.getElementById('stretchToggleBtn');
-            
-            squatToggleBtn.addEventListener('click', function() {
-                if (squatToggleBtn.classList.contains('enabled')) {
-                    squatToggleBtn.classList.remove('enabled');
-                    squatToggleBtn.classList.add('disabled');
-                    squatToggleBtn.textContent = '启动下蹲识别';
-                } else {
-                    squatToggleBtn.classList.remove('disabled');
-                    squatToggleBtn.classList.add('enabled');
-                    squatToggleBtn.textContent = '停止下蹲识别';
+            // 如果正在运行，需要重新初始化摄像头
+            if (isRunning) {
+                restartCamera();
+            }
+        }
+
+        // 重新启动摄像头
+        async function restartCamera() {
+            try {
+                console.log('重新启动摄像头...');
+                if (poseCamera) {
+                    poseCamera.stop();
                 }
-            });
-            
-            armToggleBtn.addEventListener('click', function() {
-                if (armToggleBtn.classList.contains('enabled')) {
-                    armToggleBtn.classList.remove('enabled');
-                    armToggleBtn.classList.add('disabled');
-                    armToggleBtn.textContent = '启动屈肘抬臂识别';
-                } else {
-                    armToggleBtn.classList.remove('disabled');
-                    armToggleBtn.classList.add('enabled');
-                    armToggleBtn.textContent = '停止屈肘抬臂识别';
+                await initializeCamera();
+                if (isRunning) {
+                    await poseCamera.start();
                 }
-            });
-            
-            stretchToggleBtn.addEventListener('click', function() {
-                if (stretchToggleBtn.classList.contains('enabled')) {
-                    stretchToggleBtn.classList.remove('enabled');
-                    stretchToggleBtn.classList.add('disabled');
-                    stretchToggleBtn.textContent = '启动爆发动作识别';
-                } else {
-                    stretchToggleBtn.classList.remove('disabled');
-                    stretchToggleBtn.classList.add('enabled');
-                    stretchToggleBtn.textContent = '停止爆发动作识别';
-                }
-            });
+                console.log('摄像头重启成功');
+            } catch (error) {
+                console.error('摄像头重启失败:', error);
+                updateStatus('摄像头切换失败，请重新开始识别', 'error');
+            }
+        }
+
+        // 设置画布大小 - 适应小窗口显示
+        function setupCanvas() {
+            try {
+                // 设置画布为小窗口大小
+                const containerWidth = 320;  // 小窗口宽度
+                const containerHeight = 240; // 小窗口高度
+                
+                canvasElement.width = containerWidth;
+                canvasElement.height = containerHeight;
+                console.log('Canvas setup complete:', canvasElement.width, 'x', canvasElement.height);
+            } catch (error) {
+                console.error('Error setting up canvas:', error);
+            }
+        }
+
+        // 处理窗口大小变化
+        window.addEventListener('resize', () => {
+            setupCanvas();
         });
+
+        // 检测下蹲动作
+        function detectSquat(landmarks) {
+            // 只有在启用下蹲识别时才执行检测
+            if (!isSquatDetectionEnabled) return;
+            
+            const hip = landmarks[23]; // 左髋关节
+            const knee = landmarks[25]; // 左膝关节
+            const ankle = landmarks[27]; // 左踝关节
+
+            // 计算膝关节角度
+            const kneeAngle = Math.abs(hip.y - ankle.y);
+            
+            if (kneeAngle > SQUAT_THRESHOLD && !isSquatting) {
+                isSquatting = true;
+                squatCount++;
+                updateSquatCount();
+                
+                // 检查是否在冷却时间内
+                if (squatCooldownActive) {
+                    updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount} - 冷却中，请等待...`, 'success');
+                    return;
+                }
+                
+                // 激活冷却时间
+                squatCooldownActive = true;
+                updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount} - 触发粒子下沉效果`, 'success');
+                
+                // 立即触发粒子下沉效果
+                bgSquat = 1.0;
+                particleSquat = 1.0;
+                // 将当前所有粒子标记为下落模式
+                const currentTime = performance.now() * 0.001;
+                for (let i = 0; i < particleCount; i++) {
+                    particleStates[i].mode = 'falling';
+                    particleStates[i].createdAt = currentTime;
+                }
+                
+                // 显示冷却时间倒计时
+                const cooldownElement = document.getElementById('squatCooldown');
+                const cooldownTimeElement = document.getElementById('cooldownTime');
+                if (cooldownElement && cooldownTimeElement) {
+                    cooldownElement.style.display = 'block';
+                    let cooldownRemaining = 5;
+                    cooldownTimeElement.textContent = cooldownRemaining;
+                    
+                    cooldownDisplayInterval = setInterval(() => {
+                        cooldownRemaining--;
+                        if (cooldownRemaining > 0) {
+                            cooldownTimeElement.textContent = cooldownRemaining;
+                        } else {
+                            cooldownElement.style.display = 'none';
+                            clearInterval(cooldownDisplayInterval);
+                        }
+                    }, 1000);
+                }
+                
+                // 设置5秒冷却时间
+                squatCooldownTimeout = setTimeout(() => {
+                    squatCooldownActive = false;
+                    console.log('下蹲冷却时间结束');
+                }, SQUAT_COOLDOWN_TIME);
+                
+                // 截屏
+                takeScreenshot('下蹲动作');
+                
+            } else if (kneeAngle <= SQUAT_THRESHOLD) {
+                isSquatting = false;
+            }
+        }
+
+        // 切换下蹲识别状态
+        function toggleSquatDetection() {
+            isSquatDetectionEnabled = !isSquatDetectionEnabled;
+            
+            if (isSquatDetectionEnabled) {
+                squatToggleBtn.textContent = '关闭下蹲识别';
+                squatToggleBtn.className = 'action-toggle enabled';
+                // 重置计数器
+                squatCount = 0;
+                updateSquatCount();
+            } else {
+                squatToggleBtn.textContent = '启动下蹲识别';
+                squatToggleBtn.className = 'action-toggle disabled';
+            }
+        }
+
+        // 更新下蹲计数显示
+        function updateSquatCount() {
+            if (squatCountDisplay) {
+                squatCountDisplay.textContent = squatCount;
+            }
+        }
+
+        // 检测跳跃动作
+        function detectJump(landmarks) {
+            const hip = landmarks[23]; // 左髋关节
+            
+            // 计算髋关节的垂直运动
+            const deltaY = lastY - hip.y;
+            lastY = hip.y;
+            
+            if (deltaY > JUMP_THRESHOLD && !isJumping) {
+                isJumping = true;
+                jumpCount++;
+                updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount}`, 'success');
+            } else if (deltaY <= JUMP_THRESHOLD) {
+                isJumping = false;
+            }
+        }
+
+        // 更新状态显示
+        function updateStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = type;
+        }
+
+        // 截屏功能
+        function takeScreenshot(actionType = '') {
+            try {
+                // 创建一个临时canvas来捕获当前帧
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // 设置临时canvas尺寸与输出canvas相同
+                tempCanvas.width = canvasElement.width;
+                tempCanvas.height = canvasElement.height;
+                
+                // 复制当前canvas内容到临时canvas
+                tempCtx.drawImage(canvasElement, 0, 0);
+                
+                // 获取图片数据
+                const imageData = tempCanvas.toDataURL('image/png');
+                
+                // 生成时间戳
+                const now = new Date();
+                const timestamp = now.getFullYear() + 
+                    String(now.getMonth() + 1).padStart(2, '0') + 
+                    String(now.getDate()).padStart(2, '0') + '_' +
+                    String(now.getHours()).padStart(2, '0') + 
+                    String(now.getMinutes()).padStart(2, '0') + 
+                    String(now.getSeconds()).padStart(2, '0');
+                
+                screenshotCount++;
+                
+                // 保存截图数据
+                const screenshotData = {
+                    data: imageData,
+                    timestamp: timestamp,
+                    type: actionType || '手动截图',
+                    count: screenshotCount
+                };
+                
+                if (actionType === '开始识别') {
+                    startScreenshotData = screenshotData;
+                    // 清空之前的动作截图
+                    actionScreenshots = [];
+                    // 保存到localStorage
+                    localStorage.setItem('startScreenshot', JSON.stringify(screenshotData));
+                    localStorage.setItem('actionScreenshots', JSON.stringify(actionScreenshots));
+                } else if (actionType && actionType !== '开始识别') {
+                    actionScreenshots.push(screenshotData);
+                    // 保存到localStorage
+                    localStorage.setItem('actionScreenshots', JSON.stringify(actionScreenshots));
+                }
+                
+                // 下载文件
+                tempCanvas.toBlob((blob) => {
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        
+                        let filename;
+                        if (actionType) {
+                            filename = `${actionType}_${timestamp}_${String(screenshotCount).padStart(3, '0')}.png`;
+                        } else {
+                            filename = `截图_${timestamp}_${String(screenshotCount).padStart(3, '0')}.png`;
+                        }
+                        
+                        link.href = url;
+                        link.download = filename;
+                        link.style.display = 'none';
+                        
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // 清理URL对象
+                        setTimeout(() => URL.revokeObjectURL(url), 1000);
+                        
+                        console.log(`截屏已保存: ${filename}`);
+                        if (actionType) {
+                            updateStatus(`${actionType}截图已保存: ${filename}`, 'success');
+                        } else {
+                            updateStatus(`截屏已保存: ${filename}`, 'success');
+                        }
+                        
+                        // 更新截屏计数显示
+                        if (screenshotCountDisplay) {
+                            screenshotCountDisplay.textContent = screenshotCount;
+                        }
+                    }
+                }, 'image/png');
+                
+            } catch (error) {
+                console.error('截屏失败:', error);
+                updateStatus('截屏失败，请重试', 'error');
+            }
+        }
+
+        // 检测屈肘抬臂动作
+        function detectArmMovement(landmarks) {
+            // 只有在启用屈肘抬臂识别时才执行检测
+            if (!isArmDetectionEnabled) return;
+            
+            const leftElbow = landmarks[13];   // 左手肘
+            const rightElbow = landmarks[14];  // 右手肘
+            const leftShoulder = landmarks[11]; // 左肩
+            const rightShoulder = landmarks[12]; // 右肩
+            
+            // 计算手肘相对于肩膀的位置（使用左右手肘的平均值）
+            const avgElbowY = (leftElbow.y + rightElbow.y) / 2;
+            const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+            
+            // 计算手肘相对于肩膀的高度差
+            const elbowRelativeY = avgElbowY - avgShoulderY;
+            
+            // 如果是第一帧，初始化位置
+            if (lastElbowY.avg === undefined) {
+                lastElbowY.avg = elbowRelativeY;
+                return;
+            }
+            
+            // 计算手肘的垂直运动
+            const deltaY = elbowRelativeY - lastElbowY.avg;
+            lastElbowY.avg = elbowRelativeY;
+            
+            // 检测运动状态变化
+            if (Math.abs(deltaY) > ARM_MOVEMENT_THRESHOLD) {
+                if (deltaY < 0) { // 手肘上升（Y值减小表示向上）
+                    if (armMovementState === 'falling') {
+                        // 从下降转为上升，完成一个完整周期
+                        if (armCycleStarted) {
+                            armCount++;
+                            updateArmCount();
+                            updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount}`, 'success');
+                            armCycleStarted = false;
+                            
+                            // 触发粒子分裂效果（如果不在冷却中）
+                            if (!armSplitCooldownActive) {
+                                if (typeof window.triggerArmSplit === 'function') {
+                                    window.triggerArmSplit();
+                                    updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount} - 粒子抬臂效果已触发！`, 'success');
+                                    
+                                    // 激活冷却时间
+                                    armSplitCooldownActive = true;
+                                    armSplitCooldownTimeout = setTimeout(() => {
+                                        armSplitCooldownActive = false;
+                                        console.log('屈臂分裂冷却时间结束');
+                                    }, ARM_SPLIT_COOLDOWN_TIME);
+                                    
+                                    // 截屏
+                                    takeScreenshot('屈肘抬臂动作');
+                                }
+                            } else {
+                                updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount} - 屈臂效果冷却中...`, 'success');
+                            }
+                        }
+                    }
+                    armMovementState = 'rising';
+                } else if (deltaY > 0) { // 手肘下降（Y值增大表示向下）
+                    if (armMovementState === 'rising') {
+                        // 从上升转为下降，开始一个周期
+                        armCycleStarted = true;
+                    }
+                    armMovementState = 'falling';
+                }
+            }
+        }
+
+        // 切换屈肘抬臂识别状态
+        function toggleArmDetection() {
+            isArmDetectionEnabled = !isArmDetectionEnabled;
+            
+            if (isArmDetectionEnabled) {
+                armToggleBtn.textContent = '关闭屈肘抬臂识别';
+                armToggleBtn.className = 'action-toggle enabled';
+                // 重置计数器和状态
+                armCount = 0;
+                armMovementState = 'none';
+                armCycleStarted = false;
+                lastElbowY = { left: 0, right: 0, avg: undefined };
+                updateArmCount();
+            } else {
+                armToggleBtn.textContent = '启动屈肘抬臂识别';
+                armToggleBtn.className = 'action-toggle disabled';
+            }
+        }
+
+        // 更新屈肘抬臂计数显示
+        function updateArmCount() {
+            if (armCountDisplay) {
+                armCountDisplay.textContent = armCount;
+            }
+        }
+
+        // 计算三点角度（度）
+        function calculateAngle(point1, point2, point3) {
+            const vector1 = { x: point1.x - point2.x, y: point1.y - point2.y };
+            const vector2 = { x: point3.x - point2.x, y: point3.y - point2.y };
+            
+            const dot = vector1.x * vector2.x + vector1.y * vector2.y;
+            const mag1 = Math.sqrt(vector1.x * vector1.x + vector1.y * vector1.y);
+            const mag2 = Math.sqrt(vector2.x * vector2.x + vector2.y * vector2.y);
+            
+            const cosAngle = dot / (mag1 * mag2);
+            const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
+            
+            return angle;
+        }
+
+        // 检测伸展运动
+        function detectStretchMovement(landmarks) {
+            // 只有在启用伸展运动识别时才执行检测
+            if (!isStretchDetectionEnabled) return;
+            
+            const leftShoulder = landmarks[11];  // 左肩
+            const rightShoulder = landmarks[12]; // 右肩
+            const leftWrist = landmarks[15];     // 左手腕
+            const rightWrist = landmarks[16];    // 右手腕
+            
+            // 计算胸部中心位置（肩膀中点）
+            const chestCenterX = (leftShoulder.x + rightShoulder.x) / 2;
+            const chestCenterY = (leftShoulder.y + rightShoulder.y) / 2;
+            
+            // 计算胸口区域的范围（基于肩膀宽度）
+            const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
+            const chestRadius = shoulderWidth * 0.6; // 增加胸口检测范围，使其更容易被检测到
+            
+            // 检测左手是否放在胸口
+            const leftHandToChestDistance = Math.sqrt(
+                Math.pow(leftWrist.x - chestCenterX, 2) + 
+                Math.pow(leftWrist.y - chestCenterY, 2)
+            );
+            const isLeftHandOnChest = leftHandToChestDistance < chestRadius;
+            
+            // 检测右手是否放在胸口
+            const rightHandToChestDistance = Math.sqrt(
+                Math.pow(rightWrist.x - chestCenterX, 2) + 
+                Math.pow(rightWrist.y - chestCenterY, 2)
+            );
+            const isRightHandOnChest = rightHandToChestDistance < chestRadius;
+            
+            // 判断当前状态
+            let currentState = 'none';
+            if (isRightHandOnChest && !isLeftHandOnChest) {
+                currentState = 'right_on_chest';
+            } else if (isLeftHandOnChest && !isRightHandOnChest) {
+                currentState = 'left_on_chest';
+            } else if (isLeftHandOnChest && isRightHandOnChest) {
+                // 双手都在胸口，保持当前状态
+                return;
+            } else {
+                // 没有手在胸口
+                currentState = 'none';
+                return;
+            }
+            
+            // 检测状态变化并计数
+            if (currentState !== 'none' && currentState !== stretchMovementState) {
+                if (stretchMovementState === 'right_on_chest' && currentState === 'left_on_chest') {
+                    // 从右手胸口切换到左手胸口，完成一次伸展运动
+                    stretchCount++;
+                    updateStretchCount();
+                    updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount}`, 'success');
+                    
+                    // 触发粒子爆发效果（如果不在冷却中）
+                    if (!stretchCooldownActive) {
+                        if (typeof window.triggerStretchMode === 'function') {
+                            window.triggerStretchMode();
+                            updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount} - 粒子爆发效果已触发！`, 'success');
+                            
+                            // 激活冷却时间
+                            stretchCooldownActive = true;
+                            stretchCooldownTimeout = setTimeout(() => {
+                                stretchCooldownActive = false;
+                                console.log('伸展爆发冷却时间结束');
+                            }, STRETCH_COOLDOWN_TIME);
+                            
+                            // 截屏
+                            takeScreenshot('伸展运动');
+                        }
+                    } else {
+                        updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount} - 伸展效果冷却中...`, 'success');
+                    }
+                } else if (stretchMovementState === 'left_on_chest' && currentState === 'right_on_chest') {
+                    // 从左手胸口切换到右手胸口，也算一次（双向计数）
+                    stretchCount++;
+                    updateStretchCount();
+                    updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount}`, 'success');
+                    
+                    // 触发粒子爆发效果（如果不在冷却中）
+                    if (!stretchCooldownActive) {
+                        if (typeof window.triggerStretchMode === 'function') {
+                            window.triggerStretchMode();
+                            updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount} - 粒子爆发效果已触发！`, 'success');
+                            
+                            // 激活冷却时间
+                            stretchCooldownActive = true;
+                            stretchCooldownTimeout = setTimeout(() => {
+                                stretchCooldownActive = false;
+                                console.log('伸展爆发冷却时间结束');
+                            }, STRETCH_COOLDOWN_TIME);
+                            
+                            // 截屏
+                            takeScreenshot('伸展运动');
+                        }
+                    } else {
+                        updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount} - 伸展效果冷却中...`, 'success');
+                    }
+                }
+                
+                stretchMovementState = currentState;
+            }
+        }
+
+        // 切换伸展运动识别状态
+        function toggleStretchDetection() {
+            isStretchDetectionEnabled = !isStretchDetectionEnabled;
+            
+            if (isStretchDetectionEnabled) {
+                stretchToggleBtn.textContent = '关闭爆发动作识别';
+                stretchToggleBtn.className = 'action-toggle enabled';
+                // 重置计数器和状态
+                stretchCount = 0;
+                stretchMovementState = 'none';
+                updateStretchCount();
+            } else {
+                stretchToggleBtn.textContent = '启动爆发动作识别';
+                stretchToggleBtn.className = 'action-toggle disabled';
+            }
+        }
+
+        // 更新伸展运动计数显示
+        function updateStretchCount() {
+            if (stretchCountDisplay) {
+                stretchCountDisplay.textContent = stretchCount;
+            }
+        }
+
+        // 初始化MediaPipe Pose
+        async function initializePose() {
+            try {
+                console.log('Initializing MediaPipe Pose...');
+                pose = new Pose({
+                    locateFile: (file) => {
+                        const url = `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+                        console.log('Loading MediaPipe file:', url);
+                        return url;
+                    }
+                });
+
+                pose.setOptions({
+                    modelComplexity: 1,
+                    smoothLandmarks: true,
+                    enableSegmentation: true,
+                    smoothSegmentation: true,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+
+                pose.onResults(onResults);
+
+                await pose.initialize();
+                console.log('MediaPipe Pose initialized successfully');
+            } catch (error) {
+                console.error('Error initializing MediaPipe Pose:', error);
+            }
+        }
+
+        // 处理识别结果
+        function onResults(results) {
+            if (!isRunning) return;
+
+            try {
+                // 清除画布
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+                // 计算视频显示尺寸和位置 - 适应小窗口
+                const canvasAspect = canvasElement.width / canvasElement.height;
+                const videoAspect = results.image.width / results.image.height;
+
+                let drawWidth, drawHeight, offsetX, offsetY;
+
+                if (canvasAspect > videoAspect) {
+                    // 画布较宽，视频高度填充
+                    drawHeight = canvasElement.height;
+                    drawWidth = drawHeight * videoAspect;
+                    offsetX = (canvasElement.width - drawWidth) / 2;
+                    offsetY = 0;
+                } else {
+                    // 画布较高，视频宽度填充
+                    drawWidth = canvasElement.width;
+                    drawHeight = drawWidth / videoAspect;
+                    offsetX = 0;
+                    offsetY = (canvasElement.height - drawHeight) / 2;
+                }
+
+                // 绘制视频帧
+                canvasCtx.save();
+                canvasCtx.drawImage(results.image, offsetX, offsetY, drawWidth, drawHeight);
+
+                if (results.poseLandmarks) {
+                    // 检测动作
+                    detectSquat(results.poseLandmarks);
+                    detectJump(results.poseLandmarks);
+                    detectArmMovement(results.poseLandmarks);
+                    detectStretchMovement(results.poseLandmarks);
+
+                    // 设置绘制区域
+                    canvasCtx.beginPath();
+                    canvasCtx.rect(offsetX, offsetY, drawWidth, drawHeight);
+                    canvasCtx.clip();
+
+                    // 绘制骨架连接线
+                    canvasCtx.save();
+                    canvasCtx.translate(offsetX, offsetY);
+                    canvasCtx.scale(drawWidth / results.image.width, drawHeight / results.image.height);
+                    
+                    // 绘制连接线
+                    drawConnectors(
+                        canvasCtx,
+                        results.poseLandmarks,
+                        POSE_CONNECTIONS,
+                        {color: '#00FF00', lineWidth: 3}
+                    );
+
+                    // 绘制关键点
+                    drawLandmarks(
+                        canvasCtx,
+                        results.poseLandmarks,
+                        {
+                            color: '#FF0000',
+                            lineWidth: 2,
+                            radius: 4,
+                            visibilityMin: 0.65
+                        }
+                    );
+                    
+                    canvasCtx.restore();
+                }
+
+                canvasCtx.restore();
+
+            } catch (error) {
+                console.error('Error in onResults:', error);
+            }
+        }
+
+        // 初始化摄像头
+        function initializeCamera() {
+            try {
+                console.log('Initializing camera...');
+                
+                // 构建摄像头配置
+                const cameraConfig = {
+                    onFrame: async () => {
+                        if (isRunning && pose) {
+                            try {
+                                await pose.send({image: videoElement});
+                            } catch (error) {
+                                console.error('Error sending frame to pose:', error);
+                            }
+                        }
+                    },
+                    width: 320,  // 调整摄像头分辨率以适应小窗口
+                    height: 240
+                };
+                
+                // 如果选择了特定摄像头，添加设备ID约束
+                if (selectedCameraId) {
+                    cameraConfig.deviceId = selectedCameraId;
+                }
+                
+                poseCamera = new Camera(videoElement, cameraConfig);
+                console.log('Camera initialized successfully with device:', selectedCameraId || 'default');
+            } catch (error) {
+                console.error('Error initializing camera:', error);
+            }
+        }
+
+        // 开始识别
+        async function startDetection() {
+            try {
+                if (!isRunning) {
+                    // 检查是否选择了摄像头
+                    if (!selectedCameraId && availableCameras.length > 1) {
+                        alert('请先选择一个摄像头');
+                        return;
+                    }
+                    
+                    console.log('Starting detection...');
+                    isRunning = true;
+                    await poseCamera.start();
+                    startBtn.disabled = true;
+                    startBtn.classList.remove('active');
+                    stopBtn.disabled = false;
+                    stopBtn.classList.add('active');
+                    screenshotBtn.disabled = false;
+                    screenshotBtn.classList.add('active');
+                    cameraSelect.disabled = true;
+                    console.log('Detection started successfully');
+                    
+                    // 重置计数器
+                    squatCount = 0;
+                    jumpCount = 0;
+                    armCount = 0;
+                    stretchCount = 0;
+                    updateSquatCount();
+                    updateArmCount();
+                    updateStretchCount();
+                    updateStatus(`下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount}`, 'success');
+                    
+                    // 重置截图数据
+                    startScreenshotData = null;
+                    actionScreenshots = [];
+                    screenshotCount = 0;
+                    hasStartScreenshot = false;
+                    // 清空localStorage中的截图数据
+                    localStorage.removeItem('startScreenshot');
+                    localStorage.removeItem('actionScreenshots');
+                    
+                    // 启动识别时自动截屏
+                    setTimeout(() => {
+                        if (isRunning && !hasStartScreenshot) {
+                            takeScreenshot('开始识别');
+                            hasStartScreenshot = true;
+                        }
+                    }, 1000); // 等待1秒确保摄像头画面稳定后截屏
+                }
+            } catch (error) {
+                console.error('Error starting detection:', error);
+                alert('启动摄像头失败，请确保已授予摄像头访问权限，并刷新页面重试。');
+                isRunning = false;
+                startBtn.disabled = false;
+                startBtn.classList.remove('active');
+                stopBtn.disabled = true;
+                stopBtn.classList.remove('active');
+                cameraSelect.disabled = false;
+            }
+        }
+
+        // 停止识别
+        function stopDetection() {
+            try {
+                if (isRunning) {
+                    console.log('Stopping detection...');
+                    isRunning = false;
+                    poseCamera.stop();
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('active');
+                    stopBtn.disabled = true;
+                    stopBtn.classList.remove('active');
+                    screenshotBtn.disabled = true;
+                    screenshotBtn.classList.remove('active');
+                    cameraSelect.disabled = false;
+                    
+                    // 清除各种定时器
+                    if (squatTriggerTimeout) {
+                        clearTimeout(squatTriggerTimeout);
+                        squatTriggerTimeout = null;
+                    }
+                    if (countdownInterval) {
+                        clearInterval(countdownInterval);
+                        countdownInterval = null;
+                    }
+                    if (squatCooldownTimeout) {
+                        clearTimeout(squatCooldownTimeout);
+                        squatCooldownTimeout = null;
+                    }
+                    if (cooldownDisplayInterval) {
+                        clearInterval(cooldownDisplayInterval);
+                        cooldownDisplayInterval = null;
+                    }
+                    if (armSplitCooldownTimeout) {
+                        clearTimeout(armSplitCooldownTimeout);
+                        armSplitCooldownTimeout = null;
+                    }
+                    if (stretchCooldownTimeout) {
+                        clearTimeout(stretchCooldownTimeout);
+                        stretchCooldownTimeout = null;
+                    }
+                    squatCooldownActive = false;
+                    armSplitCooldownActive = false;
+                    stretchCooldownActive = false;
+                    hasStartScreenshot = false; // 重置开始截图标志
+                    
+                    // 隐藏冷却时间显示
+                    const cooldownElement = document.getElementById('squatCooldown');
+                    if (cooldownElement) {
+                        cooldownElement.style.display = 'none';
+                    }
+                    
+                    // 清除画布
+                    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                    console.log('Detection stopped successfully');
+                    
+                    // 停止识别时截图
+                    takeScreenshot('停止识别');
+                    
+                    // 显示最终结果
+                    const status = document.getElementById('status');
+                    status.textContent = `最终结果 - 下蹲次数: ${squatCount}, 跳跃次数: ${jumpCount}, 屈肘抬臂次数: ${armCount}, 伸展运动次数: ${stretchCount}`;
+                    status.className = 'success';
+                    
+                    // 重置识别状态
+                    if (isSquatDetectionEnabled) {
+                        toggleSquatDetection();
+                    }
+                    if (isArmDetectionEnabled) {
+                        toggleArmDetection();
+                    }
+                    if (isStretchDetectionEnabled) {
+                        toggleStretchDetection();
+                    }
+                }
+            } catch (error) {
+                console.error('Error stopping detection:', error);
+            }
+        }
+
+        // 初始化函数
+        async function initialize() {
+            try {
+                console.log('Initializing application...');
+                
+                // 设置画布
+                setupCanvas();
+                
+                // 获取摄像头列表
+                await getCameraList();
+                
+                // 初始化MediaPipe Pose
+                await initializePose();
+                
+                // 初始化摄像头
+                initializeCamera();
+                
+                // 绑定事件监听器
+                startBtn.addEventListener('click', startDetection);
+                stopBtn.addEventListener('click', stopDetection);
+                screenshotBtn.addEventListener('click', takeScreenshot);
+                galleryBtn.addEventListener('click', () => {
+                    window.open('screenshot-gallery.html', '_blank');
+                });
+                cameraSelect.addEventListener('change', onCameraSelectChange);
+                squatToggleBtn.addEventListener('click', toggleSquatDetection);
+                armToggleBtn.addEventListener('click', toggleArmDetection);
+                stretchToggleBtn.addEventListener('click', toggleStretchDetection);
+                
+                console.log('Application initialized successfully');
+                
+            } catch (error) {
+                console.error('Error during initialization:', error);
+                const status = document.getElementById('status');
+                status.textContent = '初始化失败，请刷新页面重试。';
+                status.className = 'error';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', initialize);
     </script>
 </body>
+
 </html>
