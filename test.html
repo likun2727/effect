@@ -43,15 +43,21 @@
     let particleSquat = 0;
     let bgSquat = 0;
     let isBursting = false;
-    let bgBurst = 0; // 0~1，0正常，1=最强变化
+    let bgBurst = 0;
     let innerMix = bgBurst;
     let midMix = bgBurst * 0.5;
     let outMix = bgBurst * 0.2;
     let burstStartTime = 0;
-    const burstDuration = 1.2; // 秒
+    const burstDuration = 1.0;
+    
+    // 修改：记录每个粒子的运动模式和创建时间
+    let particleStates = new Array(particleCount).fill().map(() => ({
+      mode: 'normal', // 'normal' 或 'falling'
+      createdAt: 0
+    }));
+    
     init();
     animate();
-
 
     // 监听键盘
     window.addEventListener('keydown', function (e) {
@@ -59,16 +65,15 @@
       if (e.code === 'Space' && !isBursting) {
         triggerBurst()
       }
-    });
-    window.addEventListener('keydown', function (e) {
-      if (e.code === 'Space' && !isBursting) {
-        isBursting = true;
-        burstStartTime = performance.now() * 0.001;
-        bgBurst = 1.0;
-      }
       if (e.key === 's' || e.key === 'S') {
         bgSquat = 1.0;
-        particleSquat = 1.0;  // 粒子下沉启动
+        particleSquat = 1.0;
+        // 修改：将当前所有粒子标记为下落模式，但不改变它们的位置
+        const currentTime = performance.now() * 0.001;
+        for (let i = 0; i < particleCount; i++) {
+          particleStates[i].mode = 'falling';
+          particleStates[i].createdAt = currentTime;
+        }
       }
     });
 
@@ -83,10 +88,10 @@
       const colors = new Float32Array(particleCount * 3);
 
       for (let i = 0; i < particleCount; i++) {
+        // 修改：所有粒子都从中心球形区域生成
         let r = Math.random() * 80;
         let theta = Math.random() * 2 * Math.PI;
         let phi = Math.acos(2 * Math.random() - 1);
-
         let x = r * Math.sin(phi) * Math.cos(theta);
         let y = r * Math.sin(phi) * Math.sin(theta);
         let z = r * Math.cos(phi);
@@ -101,6 +106,12 @@
         colors[i * 3] = 0.3 + Math.random() * 0.1;
         colors[i * 3 + 1] = 0.5 + Math.random() * 0.1;
         colors[i * 3 + 2] = 1.0;
+        
+        // 初始化粒子状态
+        particleStates[i] = {
+          mode: 'normal',
+          createdAt: 0
+        };
       }
 
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -146,7 +157,7 @@
       scene.add(particleSystem);
 
       renderer = new THREE.WebGLRenderer({ alpha: true });
-      renderer.setClearColor(0x000000, 0); // 透明背景
+      renderer.setClearColor(0x000000, 0);
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
@@ -171,7 +182,7 @@
       const positions = geometry.attributes.position.array;
       const time = performance.now() * 0.001;
 
-      // 用爆发因子
+      // 爆发效果
       let burstFactor = 1.0;
       if (isBursting) {
         const elapsed = time - burstStartTime;
@@ -188,18 +199,43 @@
         let y = positions[idx + 1];
         let z = positions[idx + 2];
         let dist = Math.sqrt(x * x + y * y + z * z);
-        let speed = (0.03 + dist * 0.002) * burstFactor;
-        let dir = new THREE.Vector3(x, y, z).normalize();
-        positions[idx] += dir.x * speed;
-        positions[idx + 1] += dir.y * speed;
-        positions[idx + 2] += dir.z * speed;
-        if (dist > 600) {
-          let r = 1 + Math.random() * 2;
-          let theta = Math.random() * 2 * Math.PI;
-          let phi = Math.acos(2 * Math.random() - 1);
-          positions[idx] = r * Math.sin(phi) * Math.cos(theta);
-          positions[idx + 1] = r * Math.sin(phi) * Math.sin(theta);
-          positions[idx + 2] = r * Math.cos(phi);
+        
+        // 修改：根据粒子状态决定运动方式
+        if (particleStates[i].mode === 'falling') {
+          // 下落粒子：向下移动
+          let fallSpeed = 1.5 * burstFactor;
+          positions[idx + 1] -= fallSpeed;
+          
+          // 如果粒子落到底部，重新在中心生成并改为正常模式
+          if (y < -120) {
+            let r = 1 + Math.random() * 5; // 在中心小范围内生成
+            let theta = Math.random() * 2 * Math.PI;
+            let phi = Math.acos(2 * Math.random() - 1);
+            positions[idx] = r * Math.sin(phi) * Math.cos(theta);
+            positions[idx + 1] = r * Math.sin(phi) * Math.sin(theta);
+            positions[idx + 2] = r * Math.cos(phi);
+            // 重新生成的粒子恢复正常模式
+            particleStates[i].mode = 'normal';
+            particleStates[i].createdAt = time;
+          }
+        } else {
+          // 正常粒子：向外扩散
+          let speed = (0.06 + dist * 0.004) * burstFactor;
+          let dir = new THREE.Vector3(x, y, z).normalize();
+          positions[idx] += dir.x * speed;
+          positions[idx + 1] += dir.y * speed;
+          positions[idx + 2] += dir.z * speed;
+          
+          // 如果粒子移动太远，重新在中心生成
+          if (dist > 600) {
+            let r = 1 + Math.random() * 5; // 在中心小范围内生成
+            let theta = Math.random() * 2 * Math.PI;
+            let phi = Math.acos(2 * Math.random() - 1);
+            positions[idx] = r * Math.sin(phi) * Math.cos(theta);
+            positions[idx + 1] = r * Math.sin(phi) * Math.sin(theta);
+            positions[idx + 2] = r * Math.cos(phi);
+            particleStates[i].createdAt = time;
+          }
         }
       }
 
@@ -208,7 +244,6 @@
       updateBackground();
       renderer.render(scene, camera);
     }
-
 
     function lerpColor(c1, c2, t) {
       return [
@@ -221,66 +256,85 @@
     function updateBackground() {
       bgPhase += 0.01;
 
-      // 逐渐回落
+      // 逐渐回落 - 加快背景变化速度
       if (bgBurst > 0) {
-        bgBurst -= 0.003; // 恢复慢一些
+        bgBurst -= 0.008; // 加快爆发恢复速度
         if (bgBurst < 0) bgBurst = 0;
       }
       if (bgSquat > 0) {
-        bgSquat -= 0.003; // 可以再慢点
+        bgSquat -= 0.015; // 比原来快5倍
         if (bgSquat < 0) bgSquat = 0;
       }
 
-      // 预设主色
-      const centerBase = [160, 210, 255];
-      const ring1Base = [160, 210, 255];
-      const ring2Base = [255, 179, 179];
-      const ring3Base = [255, 247, 176];
-
-      // 空格爆发用
-      const burstColor = [255, 255, 255];
-
-      // 下蹲特效色：底部发光蓝紫，外圈冷色，中心更暗
-      const squatCenter = [90, 80, 255];    // 中心强烈蓝紫
-      const squatRing1 = [70, 120, 220];    // 靠近中心的深蓝
-      const squatRing2 = [30, 70, 150];     // 更远的深蓝青
-      const squatRing3 = [25, 40, 80];      // 最外圈近乎夜色
-
-      // ——中心色融合比例——
-      // 两特效可以同时叠加（极少出现，优先爆发色）
       let mixBurst = bgBurst;
-      let mixSquat = bgSquat * (1 - mixBurst); // 同时爆发时优先爆发
+      let mixSquat = bgSquat * (1 - mixBurst);
 
-      // 普通模式
-      let center = lerpColor(centerBase, burstColor, mixBurst);
-      center = lerpColor(center, squatCenter, mixSquat);
+      // 计算渐变位置和环位置
+      const centerY = 50 + Math.cos(bgPhase * 0.5) * 5;
+      const centerX = 50 + Math.sin(bgPhase * 0.7) * 5;
 
-      let ring1 = lerpColor(ring1Base, burstColor, mixBurst * 0.7);
-      ring1 = lerpColor(ring1, squatRing1, mixSquat * 0.7);
+      // 预设主色
+      const normalColors = {
+        center: [160, 210, 255],
+        ring1: [160, 210, 255], 
+        ring2: [255, 179, 179],
+        ring3: [255, 247, 176]
+      };
 
-      let ring2 = lerpColor(ring2Base, burstColor, mixBurst * 0.4);
-      ring2 = lerpColor(ring2, squatRing2, mixSquat * 0.4);
+      // 空格爆发：蓝紫色，更有冲击力
+      const burstColor = [80, 60, 180];
 
-      let ring3 = lerpColor(ring3Base, burstColor, mixBurst * 0.18);
-      ring3 = lerpColor(ring3, squatRing3, mixSquat * 0.15);
+      let gradientString = '';
 
-      // 渐变中心，普通模式在中间，下蹲时往下偏移
-      let baseY = 50 + Math.cos(bgPhase * 0.5) * 5;
-      let squatY = 90; // 渐变中心移动到屏幕下方
-      let centerY = baseY * (1 - mixSquat) + squatY * mixSquat;
-      let centerX = 50 + Math.sin(bgPhase * 0.7) * 5; // 水平方向可略偏
+      if (mixSquat > 0) {
+        // 下沉模式：使用浅蓝色
+        const lightSinkBlue = [180, 220, 255];    // 很浅的蓝色
+        const sinkBlue = [150, 200, 250];         // 浅蓝色
+        const sinkPink = [240, 150, 150];         // 稍微深一点的粉色
+        const sinkYellow = [240, 220, 140];       // 稍微深一点的黄色
+        
+        // 蓝色区域的边界
+        let blueTop = 50 - (5 * mixSquat);
+        let blueBottom = 50 + (50 * (1 - mixSquat));
+        
+        // 创建渐变 - 使用更平滑的过渡
+        gradientString = `linear-gradient(to bottom,
+          rgb(${lerpColor(normalColors.center, lightSinkBlue, mixSquat * 0.3).join(',')}) 0%,
+          rgb(${lerpColor(normalColors.center, lightSinkBlue, mixSquat * 0.5).join(',')}) ${Math.max(0, blueTop - 2)}%,
+          rgb(${lerpColor(normalColors.center, sinkBlue, mixSquat * 0.8).join(',')}) ${blueTop}%,
+          rgb(${lerpColor(sinkBlue, lightSinkBlue, mixSquat * 0.6).join(',')}) ${(blueTop + blueBottom) / 2}%,
+          rgb(${lerpColor(normalColors.ring2, sinkPink, mixSquat * 0.4).join(',')}) ${blueBottom}%,
+          rgb(${lerpColor(normalColors.ring3, sinkYellow, mixSquat * 0.3).join(',')}) ${Math.min(100, blueBottom + 5)}%
+        )`;
+      } else {
+        // 正常模式：使用原有的径向渐变
+        let center = normalColors.center;
+        let ring1 = normalColors.ring1;
+        let ring2 = normalColors.ring2;
+        let ring3 = normalColors.ring3;
+        
+        // 爆发效果覆盖
+        if (mixBurst > 0) {
+          center = lerpColor(center, burstColor, mixBurst);
+          ring1 = lerpColor(ring1, burstColor, mixBurst * 0.7);
+          ring2 = lerpColor(ring2, burstColor, mixBurst * 0.4);
+          ring3 = lerpColor(ring3, burstColor, mixBurst * 0.18);
+        }
+        
+        const ring1Pos = 15;
+        const ring2Pos = 50;
+        const ring3Pos = 100;
+        
+        gradientString = `radial-gradient(circle at ${centerX}% ${centerY}%, 
+          rgb(${center.join(',')}) 0%,
+          rgb(${ring1.join(',')}) ${ring1Pos}%,
+          rgb(${ring2.join(',')}) ${ring2Pos}%,
+          rgb(${ring3.join(',')}) ${ring3Pos}%
+        )`;
+      }
 
-      document.body.style.background =
-        `radial-gradient(circle at ${centerX}% ${centerY}%, 
-      rgb(${center.join(',')}) 0%,
-      rgb(${ring1.join(',')}) 15%,
-      rgb(${ring2.join(',')}) 50%,
-      rgb(${ring3.join(',')}) 100%
-    )`;
+      document.body.style.background = gradientString;
     }
-
-
   </script>
 </body>
-
 </html>
