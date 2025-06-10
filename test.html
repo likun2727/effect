@@ -1,16 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Liquid Cloud Particle Flow</title>
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       height: 100%;
       overflow: hidden;
       background: radial-gradient(circle, #a0caff 0%, #ffb3b3 50%, #fff7b0 100%);
     }
+
     #bg {
       position: fixed;
       top: 0;
@@ -19,6 +22,7 @@
       height: 100%;
       z-index: 0;
     }
+
     canvas {
       position: absolute;
       top: 0;
@@ -27,6 +31,7 @@
     }
   </style>
 </head>
+
 <body>
   <div id="bg"></div>
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
@@ -34,7 +39,7 @@
     let scene, camera, renderer, particleSystem;
     const particleCount = 8000;
     let geometry, material;
-
+    let bgPhase = 0;
     init();
     animate();
 
@@ -126,23 +131,78 @@
     function animate() {
       requestAnimationFrame(animate);
 
-      let positions = geometry.attributes.position.array;
+      const positions = geometry.attributes.position.array;
       const time = performance.now() * 0.001;
 
       for (let i = 0; i < particleCount; i++) {
         let idx = i * 3;
+
+        // 获取原始位置
         let x = positions[idx];
         let y = positions[idx + 1];
         let z = positions[idx + 2];
+
+        // 向外扩散速度与距离有关
         let dist = Math.sqrt(x * x + y * y + z * z);
-        let offset = Math.sin(time + dist * 0.15) * 1.2;
-        positions[idx + 1] += offset * 0.01;
+        let speed = 0.03 + dist * 0.002;  // 中心快，外围慢
+
+        // 单位方向向量
+        let dir = new THREE.Vector3(x, y, z).normalize();
+
+        // 更新位置
+        positions[idx] += dir.x * speed;
+        positions[idx + 1] += dir.y * speed;
+        positions[idx + 2] += dir.z * speed;
+
+        // 如果粒子太远，重新初始化为中心附近
+        if (dist > 80) {
+          let r = 1 + Math.random() * 2;  // 初始半径更靠近中心
+          let theta = Math.random() * 2 * Math.PI;
+          let phi = Math.acos(2 * Math.random() - 1);
+
+          let newX = r * Math.sin(phi) * Math.cos(theta);
+          let newY = r * Math.sin(phi) * Math.sin(theta);
+          let newZ = r * Math.cos(phi);
+
+          positions[idx] = newX;
+          positions[idx + 1] = newY;
+          positions[idx + 2] = newZ;
+        }
       }
 
       geometry.attributes.position.needsUpdate = true;
-      particleSystem.rotation.y += 0.001;
+      particleSystem.rotation.y += 0.0002; // 可以保留轻微旋转，增加动感
+      updateBackground();
       renderer.render(scene, camera);
     }
+
+
+
+    function updateBackground() {
+      bgPhase += 0.01;
+
+      const centerX = 50 + Math.sin(bgPhase * 0.7) * 5;  // 中心只轻微偏移
+      const centerY = 50 + Math.cos(bgPhase * 0.5) * 5;
+
+      // 中心颜色轻微波动
+      const r = Math.floor(160 + 10 * Math.sin(bgPhase * 0.5));
+      const g = Math.floor(210 + 10 * Math.cos(bgPhase * 0.8));
+      const b = 255;
+
+      const innerColor = `rgb(${r}, ${g}, ${b})`;
+
+      // 只让中心颜色变，其它颜色固定
+      document.body.style.background = `
+        radial-gradient(circle at ${centerX}% ${centerY}%,
+          ${innerColor} 0%,
+          #a0caff 10%,
+          #ffb3b3 50%,
+          #fff7b0 100%)
+      `;
+    }
+
+
   </script>
 </body>
+
 </html>
